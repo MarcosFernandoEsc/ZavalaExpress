@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: zavalaexpress-backend
+    env: node
+    plan: free
+    branch: main
+    rootDirectory: backend
+    buildCommand: npm install
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production

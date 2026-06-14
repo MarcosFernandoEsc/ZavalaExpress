@@ -1,0 +1,34 @@
+{
+  "usuarios": [
+    {
+      "id": 1,
+      "nombre": "Administrador",
+      "user": "admin",
+      "pass": "1234",
+      "rol": "admin",
+      "msgId": null
+    },
+    {
+      "id": 2,
+      "nombre": "Mensajero Demo",
+      "user": "demo",
+      "pass": "1234",
+      "rol": "mensajero",
+      "msgId": 1
+    }
+  ],
+  "mensajeros": [
+    {
+      "id": 1,
+      "nombre": "Mensajero Demo",
+      "tel": "55 0000 0000",
+      "zona": "Demo"
+    }
+  ],
+  "servicios": [],
+  "auditoria": [],
+  "reportesRecibidos": [],
+  "nxtId": 1,
+  "nxtFolio": 1,
+  "nxtUsrId": 3
+}
