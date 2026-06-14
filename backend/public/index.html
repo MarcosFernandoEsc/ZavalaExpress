@@ -1299,10 +1299,24 @@ function verDetMsj(id){
 function guardarMensajero(){
   const n=document.getElementById('am-nom').value.trim();
   if(!n){alert('El nombre es obligatorio.');return;}
-  D.mensajeros.push({id:Date.now(),nombre:n,tel:document.getElementById('am-tel').value.trim(),zona:document.getElementById('am-zona').value.trim()});
-  guardarTodo();cerrarModal('m-addmsg');renderMensajeros();llenarSels();
+  const tel=document.getElementById('am-tel').value.trim();
+  const zona=document.getElementById('am-zona').value.trim();
+  const nuevo={id:Date.now(),nombre:n,tel,zona};
+  D.mensajeros.push(nuevo);
+
+  // Crear un usuario de acceso para el mensajero automáticamente
+  const baseUser=n.trim().toLowerCase().replace(/[^a-z0-9]+/gi,'');
+  let user=baseUser || `mensajero${nuevo.id}`;
+  let sufix=1;
+  while(D.usuarios.find(u=>u.user===user)){
+    user = `${baseUser}${sufix++}`;
+  }
+  const pin='1234';
+  D.usuarios.push({id:D.nxtUsrId++,nombre:n,user,pass:pin,rol:'mensajero',msgId:nuevo.id});
+
+  guardarTodo();cerrarModal('m-addmsg');renderMensajeros();llenarSels();renderUsuarios();renderLoginUsuarios();
   ['am-nom','am-tel','am-zona'].forEach(x=>document.getElementById(x).value='');
-  toast('✓ Mensajero registrado');
+  toast('✓ Mensajero registrado. Usuario: '+user+' | PIN: '+pin);
 }
 
 function elimMsg(id){
