@@ -60,3 +60,14 @@ Se agregó guía rápida para empaquetar aplicaciones descargables:
 - `NATIVE_APPS_QUICKSTART.md`
 - `desktop/` (Electron para admin en PC)
 - `mobile/` (Capacitor Android para mensajero)
+
+## Para ir a la empresa (Chiapas)
+
+Antes de salir:
+- Lee: `CHECKLIST_EMPRESA.md` (qué preguntar al admin)
+- Lleva: este proyecto en tu USB/laptop
+
+Cuando regreses:
+- Lee: `ENTREGA_FINAL.md` (pasos paso a paso para configurar)
+- Ejecuta: `update-url.bat` (Windows) o `update-url.sh` (Linux/Mac) con tu URL
+- Entregar: `ZAVALAEXPRESS.exe` (admin) + `app-debug.apk` (mensajero)
