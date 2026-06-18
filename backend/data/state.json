@@ -12,7 +12,7 @@
       "id": 3,
       "nombre": "Carlos LopezObrador",
       "user": "carlos",
-      "pass": "4425",
+      "pass": "9922",
       "rol": "mensajero",
       "msgId": 1781583140908
     }
@@ -30,22 +30,27 @@
       "id": 1,
       "folio": "SV-0001",
       "msgId": 1781583140908,
-      "personas": [
-        "Carlos"
-      ],
       "fecha": "2026-06-17",
       "hora": "13:30",
       "monto": 0,
       "estatus": "Programado",
       "obs": "EN DONDE SIEMPRE",
-      "foto": null,
+      "foto": "",
       "creadoPor": "Administrador",
       "creadoEn": "2026-06-16T04:23:00.728Z",
-      "finalizadoPor": null,
-      "finalizadoEn": null,
+      "finalizadoPor": "",
+      "finalizadoEn": "",
       "finalizadoReporte": "",
       "finalizadoResultado": "",
-      "fotoFinal": ""
+      "fotoFinal": "",
+      "fotoFinalReemplazos": 0,
+      "eliminadoPor": "",
+      "eliminadoEn": "",
+      "editadoPor": "",
+      "editadoEn": "",
+      "personas": [
+        "Carlos"
+      ]
     }
   ],
   "auditoria": [],
