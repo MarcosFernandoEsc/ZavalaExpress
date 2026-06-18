@@ -52,3 +52,11 @@ La API debe devolver y aceptar el mismo objeto JSON interno que usa la app.
 2. Crear autenticación real para contador y mensajeros.
 3. Guardar fotos en almacenamiento de servidor en lugar de local.
 4. Agregar historial de cambios y auditoría centralizada.
+
+## Apps nativas (Windows + Android)
+
+Se agregó guía rápida para empaquetar aplicaciones descargables:
+
+- `NATIVE_APPS_QUICKSTART.md`
+- `desktop/` (Electron para admin en PC)
+- `mobile/` (Capacitor Android para mensajero)

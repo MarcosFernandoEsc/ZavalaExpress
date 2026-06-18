@@ -1,6 +1,8 @@
 # Dependencies
 node_modules
 backend/node_modules
+desktop/node_modules
+mobile/node_modules
 
 # Logs
 npm-debug.log*
@@ -17,3 +19,9 @@ Thumbs.db
 
 # Runtime files
 .env
+
+# Build artifacts
+desktop/release
+mobile/android/.gradle
+mobile/android/local.properties
+mobile/android/app/build

@@ -1,0 +1,39 @@
+{
+  "name": "zavalaexpress-desktop",
+  "version": "1.0.0",
+  "private": true,
+  "description": "ZAVALAEXPRESS desktop wrapper for admin",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "bundle": "electron-packager . ZAVALAEXPRESS --platform=win32 --arch=x64 --out=release --overwrite",
+    "pack": "set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --dir",
+    "dist": "set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --win portable",
+    "dist:nsis": "set CSC_IDENTITY_AUTO_DISCOVERY=false && electron-builder --win nsis"
+  },
+  "devDependencies": {
+    "electron": "^31.7.7",
+    "electron-builder": "^24.13.3",
+    "electron-packager": "^17.1.2"
+  },
+  "build": {
+    "appId": "com.zavalaexpress.desktop",
+    "productName": "ZAVALAEXPRESS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "config.json",
+      "assets/**/*"
+    ],
+    "win": {
+      "signAndEditExecutable": false,
+      "target": [
+        "portable",
+        "nsis"
+      ]
+    }
+  }
+}

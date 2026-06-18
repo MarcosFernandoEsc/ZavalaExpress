@@ -9,26 +9,48 @@
       "msgId": null
     },
     {
-      "id": 2,
-      "nombre": "Mensajero Demo",
-      "user": "demo",
-      "pass": "1234",
+      "id": 3,
+      "nombre": "Carlos LopezObrador",
+      "user": "carlos",
+      "pass": "4425",
       "rol": "mensajero",
-      "msgId": 1
+      "msgId": 1781583140908
     }
   ],
   "mensajeros": [
     {
-      "id": 1,
-      "nombre": "Mensajero Demo",
-      "tel": "55 0000 0000",
-      "zona": "Demo"
+      "id": 1781583140908,
+      "nombre": "Carlos LopezObrador",
+      "tel": "",
+      "zona": ""
     }
   ],
-  "servicios": [],
+  "servicios": [
+    {
+      "id": 1,
+      "folio": "SV-0001",
+      "msgId": 1781583140908,
+      "personas": [
+        "Carlos"
+      ],
+      "fecha": "2026-06-17",
+      "hora": "13:30",
+      "monto": 0,
+      "estatus": "Programado",
+      "obs": "EN DONDE SIEMPRE",
+      "foto": null,
+      "creadoPor": "Administrador",
+      "creadoEn": "2026-06-16T04:23:00.728Z",
+      "finalizadoPor": null,
+      "finalizadoEn": null,
+      "finalizadoReporte": "",
+      "finalizadoResultado": "",
+      "fotoFinal": ""
+    }
+  ],
   "auditoria": [],
   "reportesRecibidos": [],
-  "nxtId": 1,
-  "nxtFolio": 1,
-  "nxtUsrId": 3
+  "nxtId": 2,
+  "nxtFolio": 2,
+  "nxtUsrId": 4
 }

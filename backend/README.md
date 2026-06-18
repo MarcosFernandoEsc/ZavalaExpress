@@ -6,7 +6,8 @@ Este backend es una entrega parcial para presentar progreso del proyecto.
 
 - Expone `GET /api/zavala/state` para leer el estado general.
 - Expone `POST /api/zavala/state` para guardar el estado completo.
-- Guarda la información en un archivo JSON local.
+- Guarda la información en `backend/data/state.db` usando SQLite.
+- Mantiene una copia de respaldo JSON en `backend/data/state.json`.
 - Está pensado para conectar con el HTML existente de ZAVALAEXPRESS.
 
 ## Estructura

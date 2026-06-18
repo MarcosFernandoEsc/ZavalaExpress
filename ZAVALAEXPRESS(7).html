@@ -8,6 +8,9 @@
 <meta name="apple-mobile-web-app-title" content="ZavalaExpress"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="theme-color" content="#0D1B3E"/>
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icon.svg" />
 <title>ZAVALAEXPRESS</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css"/>
 <script>
@@ -700,8 +703,48 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
    ALMACENAMIENTO — IndexedDB + localStorage
 ══════════════════════════════════════════ */
 const DB_NAME='ZavalaExpressDB2', DB_VER=2, STORE='datos';
-const APP_CONFIG={apiBaseUrl:window.__ZAVALA_CONFIG__?.apiBaseUrl||window.location.origin};
+const LOCAL_STATE_KEY='ze_v5';
+const AUTH_TOKEN_KEY='ze_token';
+const APP_CONFIG={
+  apiBaseUrl:
+    window.__ZAVALA_CONFIG__?.apiBaseUrl ||
+    (window.location.protocol.startsWith('http') ? window.location.origin : ''),
+};
+let authToken=localStorage.getItem(AUTH_TOKEN_KEY) || null;
+let serverMode=Boolean(APP_CONFIG.apiBaseUrl);
 let db=null;
+
+function saveAuthToken(token){
+  authToken=token;
+  if(token){
+    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+function sanitizeStateForCache(state){
+  return {
+    ...state,
+    usuarios: (state.usuarios||[]).map(({pass, ...user}) => user),
+  };
+}
+
+function buildHeaders(extra={}){
+  const headers = {'Content-Type':'application/json', ...extra};
+  if(authToken) headers.Authorization = `Bearer ${authToken}`;
+  return headers;
+}
+
+async function fetchApi(path, options={}){
+  const url = APP_CONFIG.apiBaseUrl.replace(/\/$/, '') + path;
+  const response = await fetch(url, {...options, headers: buildHeaders(options.headers)});
+  if(response.status===401){
+    saveAuthToken(null);
+    authToken=null;
+  }
+  return response;
+}
 
 function abrirDB(){
   return new Promise((res,rej)=>{
@@ -715,11 +758,10 @@ function dbGet(k){return new Promise(r=>{if(!db){r(null);return;}const tx=db.tra
 function dbSet(k,v){return new Promise(r=>{if(!db){r();return;}const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(v,k);tx.oncomplete=()=>r();tx.onerror=()=>r();});}
 
 async function syncServidor(){
-  if(!APP_CONFIG.apiBaseUrl)return;
+  if(!serverMode || !authToken)return;
   try{
-    await fetch(APP_CONFIG.apiBaseUrl.replace(/\/$/,'')+'/api/zavala/state',{
+    await fetchApi('/api/zavala/state',{
       method:'POST',
-      headers:{'Content-Type':'application/json'},
       body:JSON.stringify(D)
     });
   }catch(e){}
@@ -727,8 +769,8 @@ async function syncServidor(){
 
 function guardarTodo(){
   const j=JSON.stringify(D);
-  try{localStorage.setItem('ze_v5',j);}catch(e){}
-  dbSet('app',D).catch(()=>{});
+  try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
+  dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
   syncServidor();
 }
 
@@ -991,7 +1033,11 @@ function actualizarPuntos(){
   }
 }
 
-function verificarPIN(){
+async function verificarPIN(){
+  if(serverMode){
+    await iniciarLoginRemoto(pinUserSel.user,pinBuffer);
+    return;
+  }
   if(pinUserSel.pass===pinBuffer){
     entrarConUsuario(pinUserSel);
   } else {
@@ -1004,6 +1050,53 @@ function verificarPIN(){
       document.getElementById('li-err').style.display='none';
     },900);
   }
+}
+
+async function iniciarLoginRemoto(user, pin){
+  if(!serverMode) return;
+  try{
+    const res = await fetchApi('/api/zavala/login', {
+      method:'POST',
+      body:JSON.stringify({user, pass: pin})
+    });
+    if(!res){
+      mostrarErrorLogin('No autorizado. Verifica tu conexión.');
+      return;
+    }
+    if(!res.ok){
+      mostrarErrorLogin('PIN incorrecto');
+      return;
+    }
+    const data = await res.json();
+    if(data.ok && data.token){
+      saveAuthToken(data.token);
+      if(data.state && data.state.servicios!==undefined){
+        D = data.state;
+      }
+      const found = data.usuario || (D.usuarios||[]).find(u => u.user===user);
+      if(found){
+        pinUserSel = found;
+        entrarConUsuario(found);
+      }
+    } else {
+      mostrarErrorLogin(data.message || 'Error al iniciar sesión');
+    }
+  } catch (error){
+    console.error(error);
+    mostrarErrorLogin('Error al conectar con el servidor');
+  }
+}
+
+function mostrarErrorLogin(message){
+  document.getElementById('li-err').textContent = message;
+  document.getElementById('li-err').style.display = 'block';
+  for(let i=0;i<4;i++){const d=document.getElementById('pd'+i);if(d)d.className='pin-dot err';}
+  setTimeout(()=>{
+    pinBuffer='';
+    actualizarPuntos();
+    document.getElementById('li-err').textContent='PIN incorrecto';
+    document.getElementById('li-err').style.display='none';
+  },1200);
 }
 
 function entrarConUsuario(found){
@@ -1027,7 +1120,16 @@ function entrarConUsuario(found){
   iniciarVista();
 }
 
-function doLogout(){
+async function doLogout(){
+  if(authToken && serverMode){
+    try{
+      const res = await fetchApi('/api/zavala/logout', {method:'POST'});
+      if(res && !res.ok){
+        console.warn('Logout remoto falló');
+      }
+    }catch(e){}
+  }
+  saveAuthToken(null);
   sesion=null;
   pinBuffer='';
   pinUserSel=null;
@@ -1987,6 +2089,13 @@ function eliminarReporteRecibido(idx){
 }
 
 iniciarApp();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>

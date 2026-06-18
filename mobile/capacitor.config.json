@@ -1,0 +1,10 @@
+{
+  "appId": "com.zavalaexpress.mobile",
+  "appName": "ZAVALAEXPRESS",
+  "webDir": "www",
+  "server": {
+    "url": "https://TU_DOMINIO_PUBLICO_AQUI",
+    "cleartext": false,
+    "androidScheme": "https"
+  }
+}

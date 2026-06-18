@@ -1,5 +1,7 @@
 import express from 'express';
 import cors from 'cors';
+import sqlite3 from 'sqlite3';
+import crypto from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -10,6 +12,7 @@ const app = express();
 const port = Number(process.env.PORT || 3000);
 const dataDir = join(__dirname, 'data');
 const stateFile = join(dataDir, 'state.json');
+const dbFile = join(dataDir, 'state.db');
 
 const defaultState = {
   usuarios: [
@@ -27,31 +30,410 @@ const defaultState = {
   nxtUsrId: 3,
 };
 
-function ensureStorage() {
+let db = null;
+
+function run(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.run(sql, params, function (err) {
+      if (err) return reject(err);
+      return resolve(this);
+    });
+  });
+}
+
+function all(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.all(sql, params, (err, rows) => {
+      if (err) return reject(err);
+      return resolve(rows);
+    });
+  });
+}
+
+function get(sql, params = []) {
+  return new Promise((resolve, reject) => {
+    db.get(sql, params, (err, row) => {
+      if (err) return reject(err);
+      return resolve(row);
+    });
+  });
+}
+
+async function ensureStorage() {
   if (!existsSync(dataDir)) {
     mkdirSync(dataDir, { recursive: true });
   }
-  if (!existsSync(stateFile)) {
-    writeFileSync(stateFile, JSON.stringify(defaultState, null, 2), 'utf8');
+
+  if (!db) {
+    await openDatabase();
   }
 }
 
-function loadState() {
-  ensureStorage();
+async function openDatabase() {
+  return new Promise((resolve, reject) => {
+    db = new sqlite3.Database(dbFile, async (err) => {
+      if (err) return reject(err);
+      try {
+        await run('PRAGMA journal_mode = WAL');
+        await initDatabase();
+        await migrateJsonState();
+        resolve();
+      } catch (error) {
+        reject(error);
+      }
+    });
+  });
+}
+
+async function initDatabase() {
+  await run(`CREATE TABLE IF NOT EXISTS usuarios (
+    id INTEGER PRIMARY KEY,
+    nombre TEXT,
+    user TEXT,
+    pass TEXT,
+    rol TEXT,
+    msgId INTEGER
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS mensajeros (
+    id INTEGER PRIMARY KEY,
+    nombre TEXT,
+    tel TEXT,
+    zona TEXT
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS servicios (
+    id INTEGER PRIMARY KEY,
+    folio TEXT,
+    msgId INTEGER,
+    fecha TEXT,
+    hora TEXT,
+    monto REAL,
+    estatus TEXT,
+    obs TEXT,
+    foto TEXT,
+    creadoPor TEXT,
+    creadoEn TEXT,
+    finalizadoPor TEXT,
+    finalizadoEn TEXT,
+    finalizadoReporte TEXT,
+    finalizadoResultado TEXT,
+    fotoFinal TEXT,
+    fotoFinalReemplazos INTEGER,
+    eliminadoPor TEXT,
+    eliminadoEn TEXT,
+    editadoPor TEXT,
+    editadoEn TEXT,
+    personas TEXT
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS auditoria (
+    ts TEXT,
+    por TEXT,
+    rol TEXT,
+    folio TEXT,
+    msgNombre TEXT,
+    fecha TEXT,
+    hora TEXT,
+    personas TEXT,
+    monto REAL,
+    obs TEXT,
+    srvId INTEGER
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS reportesRecibidos (
+    id INTEGER PRIMARY KEY,
+    paquete TEXT
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS meta (
+    key TEXT PRIMARY KEY,
+    value TEXT
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS sessions (
+    token TEXT PRIMARY KEY,
+    userId INTEGER,
+    createdAt TEXT,
+    expiresAt TEXT
+  )`);
+}
+
+function nowISO() {
+  return new Date().toISOString();
+}
+
+async function createSession(userId) {
+  const token = crypto.randomUUID();
+  const createdAt = nowISO();
+  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+  await run('INSERT INTO sessions (token, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)', [token, userId, createdAt, expiresAt]);
+  return token;
+}
+
+async function findSession(token) {
+  if (!token) return null;
+  return await get('SELECT * FROM sessions WHERE token = ? AND expiresAt > ?', [token, nowISO()]);
+}
+
+async function requireAuth(req, res, next) {
+  const authHeader = req.headers.authorization || '';
+  if (!authHeader.startsWith('Bearer ')) {
+    return res.status(401).json({ ok: false, message: 'No autorizado' });
+  }
+
+  const token = authHeader.slice(7);
+  try {
+    const session = await findSession(token);
+    if (!session) {
+      return res.status(401).json({ ok: false, message: 'Token inválido o expirado' });
+    }
+
+    const user = await get('SELECT * FROM usuarios WHERE id = ?', [session.userId]);
+    if (!user) {
+      return res.status(401).json({ ok: false, message: 'Usuario no encontrado' });
+    }
+
+    req.user = user;
+    next();
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error de autenticación' });
+  }
+}
+
+function sanitizeUsers(users) {
+  return (users || []).map(({ pass, ...user }) => user);
+}
+
+function sanitizeState(state) {
+  return {
+    ...state,
+    usuarios: sanitizeUsers(state.usuarios),
+  };
+}
+
+function sendSecureHeaders(req, res, next) {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+  next();
+}
+
+function readJsonState() {
   try {
     const raw = readFileSync(stateFile, 'utf8');
-    const parsed = JSON.parse(raw);
-    return { ...defaultState, ...parsed };
+    return JSON.parse(raw);
   } catch {
-    return structuredClone(defaultState);
+    return null;
   }
 }
 
-function saveState(state) {
-  ensureStorage();
-  writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
+async function migrateJsonState() {
+  const stateJson = readJsonState();
+  if (!stateJson) return;
+
+  const row = await get('SELECT COUNT(*) AS count FROM usuarios');
+  if (row && row.count > 0) return;
+
+  await saveState(stateJson);
 }
 
+function writeJsonBackup(state) {
+  try {
+    writeFileSync(stateFile, JSON.stringify(state, null, 2), 'utf8');
+  } catch (error) {
+    console.error('No se pudo escribir backup JSON', error);
+  }
+}
+
+async function loadState() {
+  await ensureStorage();
+
+  const usuarios = await all('SELECT * FROM usuarios');
+  const mensajeros = await all('SELECT * FROM mensajeros');
+  const serviciosRows = await all('SELECT * FROM servicios');
+  const auditoriaRows = await all('SELECT * FROM auditoria');
+  const reportesRows = await all('SELECT * FROM reportesRecibidos');
+  const metaRows = await all('SELECT * FROM meta');
+
+  const state = {
+    ...defaultState,
+    usuarios: usuarios.map((row) => ({
+      id: row.id,
+      nombre: row.nombre,
+      user: row.user,
+      pass: row.pass,
+      rol: row.rol,
+      msgId: row.msgId === null ? null : row.msgId,
+    })),
+    mensajeros: mensajeros.map((row) => ({
+      id: row.id,
+      nombre: row.nombre,
+      tel: row.tel,
+      zona: row.zona,
+    })),
+    servicios: serviciosRows.map((row) => ({
+      id: row.id,
+      folio: row.folio,
+      msgId: row.msgId === null ? null : row.msgId,
+      fecha: row.fecha,
+      hora: row.hora,
+      monto: row.monto,
+      estatus: row.estatus,
+      obs: row.obs,
+      foto: row.foto,
+      creadoPor: row.creadoPor,
+      creadoEn: row.creadoEn,
+      finalizadoPor: row.finalizadoPor,
+      finalizadoEn: row.finalizadoEn,
+      finalizadoReporte: row.finalizadoReporte,
+      finalizadoResultado: row.finalizadoResultado,
+      fotoFinal: row.fotoFinal,
+      fotoFinalReemplazos: row.fotoFinalReemplazos,
+      eliminadoPor: row.eliminadoPor,
+      eliminadoEn: row.eliminadoEn,
+      editadoPor: row.editadoPor,
+      editadoEn: row.editadoEn,
+      personas: row.personas ? JSON.parse(row.personas) : [],
+    })),
+    auditoria: auditoriaRows.map((row) => ({
+      ts: row.ts,
+      por: row.por,
+      rol: row.rol,
+      folio: row.folio,
+      msgNombre: row.msgNombre,
+      fecha: row.fecha,
+      hora: row.hora,
+      personas: row.personas ? JSON.parse(row.personas) : [],
+      monto: row.monto,
+      obs: row.obs,
+      srvId: row.srvId,
+    })),
+    reportesRecibidos: reportesRows.map((row) => {
+      try {
+        return JSON.parse(row.paquete);
+      } catch {
+        return null;
+      }
+    }).filter(Boolean),
+    nxtId: defaultState.nxtId,
+    nxtFolio: defaultState.nxtFolio,
+    nxtUsrId: defaultState.nxtUsrId,
+  };
+
+  for (const { key, value } of metaRows) {
+    try {
+      const parsed = JSON.parse(value);
+      if (key in state) {
+        state[key] = parsed;
+      }
+    } catch {
+      if (key === 'nxtId') state.nxtId = Number(value) || state.nxtId;
+      if (key === 'nxtFolio') state.nxtFolio = Number(value) || state.nxtFolio;
+      if (key === 'nxtUsrId') state.nxtUsrId = Number(value) || state.nxtUsrId;
+    }
+  }
+
+  if (!state.usuarios.length) {
+    return defaultState;
+  }
+
+  return state;
+}
+
+async function saveState(state) {
+  await ensureStorage();
+  await run('BEGIN TRANSACTION');
+  try {
+    await run('DELETE FROM usuarios');
+    await run('DELETE FROM mensajeros');
+    await run('DELETE FROM servicios');
+    await run('DELETE FROM auditoria');
+    await run('DELETE FROM reportesRecibidos');
+    await run('DELETE FROM meta');
+
+    const insertUsuario = 'INSERT INTO usuarios (id, nombre, user, pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?)';
+    for (const u of state.usuarios || []) {
+      await run(insertUsuario, [u.id, u.nombre, u.user, u.pass, u.rol, u.msgId]);
+    }
+
+    const insertMensajero = 'INSERT INTO mensajeros (id, nombre, tel, zona) VALUES (?, ?, ?, ?)';
+    for (const m of state.mensajeros || []) {
+      await run(insertMensajero, [m.id, m.nombre, m.tel, m.zona]);
+    }
+
+    const insertServicio = `INSERT INTO servicios (
+      id, folio, msgId, fecha, hora, monto, estatus, obs, foto,
+      creadoPor, creadoEn, finalizadoPor, finalizadoEn, finalizadoReporte,
+      finalizadoResultado, fotoFinal, fotoFinalReemplazos, eliminadoPor,
+      eliminadoEn, editadoPor, editadoEn, personas
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`;
+
+    for (const v of state.servicios || []) {
+      await run(insertServicio, [
+        v.id,
+        v.folio,
+        v.msgId,
+        v.fecha,
+        v.hora,
+        v.monto || 0,
+        v.estatus || 'Programado',
+        v.obs || '',
+        v.foto || '',
+        v.creadoPor || '',
+        v.creadoEn || '',
+        v.finalizadoPor || '',
+        v.finalizadoEn || '',
+        v.finalizadoReporte || '',
+        v.finalizadoResultado || '',
+        v.fotoFinal || '',
+        v.fotoFinalReemplazos || 0,
+        v.eliminadoPor || '',
+        v.eliminadoEn || '',
+        v.editadoPor || '',
+        v.editadoEn || '',
+        JSON.stringify(v.personas || []),
+      ]);
+    }
+
+    const insertAuditoria = 'INSERT INTO auditoria (ts, por, rol, folio, msgNombre, fecha, hora, personas, monto, obs, srvId) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)';
+    for (const a of state.auditoria || []) {
+      await run(insertAuditoria, [
+        a.ts || '',
+        a.por || '',
+        a.rol || '',
+        a.folio || '',
+        a.msgNombre || '',
+        a.fecha || '',
+        a.hora || '',
+        JSON.stringify(a.personas || []),
+        a.monto || 0,
+        a.obs || '',
+        a.srvId || null,
+      ]);
+    }
+
+    const insertReporte = 'INSERT INTO reportesRecibidos (id, paquete) VALUES (?, ?)';
+    for (const [index, r] of (state.reportesRecibidos || []).entries()) {
+      await run(insertReporte, [index + 1, JSON.stringify(r)]);
+    }
+
+    const insertMeta = 'INSERT INTO meta (key, value) VALUES (?, ?)';
+    await run(insertMeta, ['nxtId', JSON.stringify(state.nxtId || defaultState.nxtId)]);
+    await run(insertMeta, ['nxtFolio', JSON.stringify(state.nxtFolio || defaultState.nxtFolio)]);
+    await run(insertMeta, ['nxtUsrId', JSON.stringify(state.nxtUsrId || defaultState.nxtUsrId)]);
+
+    await run('COMMIT');
+    writeJsonBackup(state);
+  } catch (error) {
+    await run('ROLLBACK');
+    throw error;
+  }
+}
+
+app.use(sendSecureHeaders);
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.static(join(__dirname, 'public')));
@@ -60,23 +442,93 @@ app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'zavalaexpress-backend', status: 'advance' });
 });
 
-app.get('/api/zavala/state', (_req, res) => {
-  res.json(loadState());
+app.get('/api/zavala/users', async (_req, res) => {
+  try {
+    const state = await loadState();
+    res.json(sanitizeUsers(state.usuarios));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error al cargar usuarios' });
+  }
 });
 
-app.post('/api/zavala/state', (req, res) => {
+app.post('/api/zavala/login', async (req, res) => {
+  const { user, pass } = req.body;
+  if (!user || !pass) {
+    return res.status(400).json({ ok: false, message: 'Usuario o PIN faltante' });
+  }
+
+  try {
+    const state = await loadState();
+    const found = (state.usuarios || []).find((u) => u.user === user && u.pass === pass);
+    if (!found) {
+      return res.status(401).json({ ok: false, message: 'Usuario o PIN incorrecto' });
+    }
+
+    const token = await createSession(found.id);
+    res.json({ ok: true, token, usuario: sanitizeUsers([found])[0], state: sanitizeState(state) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error al autenticar usuario' });
+  }
+});
+
+app.get('/api/zavala/state', requireAuth, async (_req, res) => {
+  try {
+    const state = await loadState();
+    res.json(sanitizeState(state));
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error al cargar estado' });
+  }
+});
+
+app.post('/api/zavala/logout', requireAuth, async (req, res) => {
+  try {
+    const authHeader = req.headers.authorization || '';
+    const token = authHeader.startsWith('Bearer ') ? authHeader.slice(7) : null;
+    if (token) {
+      await run('DELETE FROM sessions WHERE token = ?', [token]);
+    }
+    res.json({ ok: true, loggedOut: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error al cerrar sesión' });
+  }
+});
+
+app.post('/api/zavala/state', requireAuth, async (req, res) => {
   const incoming = req.body;
   if (!incoming || typeof incoming !== 'object') {
     return res.status(400).json({ ok: false, message: 'Body inválido' });
   }
 
-  const next = {
-    ...loadState(),
-    ...incoming,
-  };
+  try {
+    const current = await loadState();
+    let usuarios = incoming.usuarios;
+    if (Array.isArray(usuarios)) {
+      usuarios = usuarios.map((u) => {
+        const existing = current.usuarios.find((item) => item.id === u.id);
+        return {
+          ...existing,
+          ...u,
+          pass: u.pass === undefined ? existing?.pass : u.pass,
+        };
+      });
+    }
 
-  saveState(next);
-  res.json({ ok: true, saved: true });
+    const next = {
+      ...current,
+      ...incoming,
+      usuarios: usuarios || current.usuarios,
+    };
+
+    await saveState(next);
+    res.json({ ok: true, saved: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error al guardar estado' });
+  }
 });
 
 app.get('/', (_req, res) => {
