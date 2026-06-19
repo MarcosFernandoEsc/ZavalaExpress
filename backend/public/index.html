@@ -738,9 +738,14 @@ async function fetchApi(path, options={}){
   const response = await fetch(url, {...options, headers: buildHeaders(options.headers)});
   if(response.status===401){
     saveAuthToken(null);
+    authToken=null;
   }
   return response;
 }
+
+let syncInFlight = false;
+let syncPending = false;
+let lastSyncedPayload = '';
 
 function abrirDB(){
   return new Promise((res,rej)=>{
@@ -755,12 +760,24 @@ function dbSet(k,v){return new Promise(r=>{if(!db){r();return;}const tx=db.trans
 
 async function syncServidor(){
   if(!serverMode || !authToken)return;
+  syncPending = true;
+  if(syncInFlight)return;
+  syncInFlight = true;
   try{
-    await fetchApi('/api/zavala/state',{
-      method:'POST',
-      body:JSON.stringify(D)
-    });
+    while(syncPending){
+      syncPending = false;
+      const payload = JSON.stringify(D);
+      if(payload===lastSyncedPayload)continue;
+      await fetchApi('/api/zavala/state',{
+        method:'POST',
+        body:payload
+      });
+      lastSyncedPayload = payload;
+    }
   }catch(e){}
+  finally{
+    syncInFlight = false;
+  }
 }
 
 function guardarTodo(){
