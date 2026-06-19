@@ -1,70 +1,54 @@
-# Checklist para visita a empresa (Chiapas)
+﻿# Preguntas para el contador (fácil de entender)
 
-Cuando vayas a la empresa mañana, pregunta esto al admin/responsable del servidor:
+Estas preguntas son para que tú se las hagas al contador.
+Si él no sabe, que se las pase tal cual al encargado de sistemas.
 
-## 1) **URL / Dominio del servidor**
-   - **Pregunta**: "¿Cuál es la URL pública o dominio que usan para acceder al servidor desde fuera?"
-   - **Espera respuesta como**: `https://mi-empresa.com` o `https://zavala.midominio.com`
-   - **Si no saben**: "¿Qué IP pública tiene la PC del servidor?"
+## Mensaje corto para el contador
 
-## 2) **Puerto**
-   - **Pregunta**: "¿En qué puerto está corriendo el servidor? ¿3000? ¿8080?"
-   - **Respuesta típica**: 3000, 8080, o está detrás de reverse proxy en puerto 80/443
-   - **Si dice "no sé"**: Asume puerto 3000, pero confirma con IT
+"Necesito estos datos para que la app del admin (PC) y la app del mensajero (celular) funcionen conectadas por internet. ¿Me ayudas a conseguirlos con el encargado de sistemas?"
 
-## 3) **HTTPS vs HTTP**
-   - **Pregunta**: "¿El servidor tiene certificado SSL/HTTPS?"
-   - **Respuesta esperada**: Sí (tiene dominio + certificado) o No (usa HTTP)
-   - **Importante**: Las apps modernas prefieren HTTPS; si es HTTP debes saberlo para configuración
+## Preguntas (en orden)
 
-## 4) **¿El servidor está encendido siempre?**
-   - **Pregunta**: "¿Qué tan confiable es? ¿Se reinicia solo? ¿Alguien lo apaga?"
-   - **Respuesta**: Define si la app va a ser estable para operación diaria
+1. ¿Cuál es la dirección exacta de la app en internet?
+   - Ejemplo: https://zavala.empresa.com
+   - Si no hay dominio, pedir IP pública completa.
 
-## 5) **Acceso para instalar/reiniciar**
-   - **Pregunta**: "¿Quién tiene acceso a la PC servidor? ¿Yo puedo instalar cosas o solo IT?"
-   - **Por qué**: Si algo falla, necesitas saber quién reinicia o actualiza
+2. ¿Esa dirección abre también desde fuera de la oficina?
+   - Que lo prueben con un celular usando datos móviles (no WiFi de la empresa).
 
-## 6) **Documento/contrato**
-   - **Pide**: Que confirmen por email o documento que autorizan usar esa URL para la app
+3. ¿La dirección empieza con https://?
+   - Si es sí, perfecto.
+   - Si es no, también me sirve saberlo, pero hay que ajustarlo.
 
----
+4. ¿El servidor está encendido todo el tiempo (24/7)?
+   - Si lo apagan en la noche, la app dejará de funcionar en ese horario.
 
-## Ejemplo de respuesta "perfecta"
+5. Si el sistema se cae, ¿quién lo reinicia?
+   - Necesito nombre y teléfono de esa persona.
 
-```
-URL: https://zavala.empresa.com
-Puerto: 443 (detrás de dominio, sin puerto visible)
-HTTPS: Sí, tiene certificado válido
-Disponibilidad: Abierta 24/7, IT maneja reinicio automático
-```
+6. ¿Qué puerto usa el sistema?
+   - Si no saben, pedir que el encargado lo confirme (ejemplo: 443, 3000, 8080).
 
-## Ejemplo de respuesta "difícil"
+7. ¿Ya tienen respaldo (backup) de la base de datos?
+   - Si sí: cada cuánto y quién lo revisa.
+   - Si no: pedir que lo activen.
 
-```
-IP: 200.123.45.67
-Puerto: 3000
-HTTPS: No, es HTTP (esto requiere ajuste en app)
-Disponibilidad: Se apaga a las 9 PM, reinicia a las 8 AM
-```
+## Lo mínimo que te deben regresar
 
----
+Copia y pega este formato para que te respondan:
 
-## Qué hacer después
+- URL final: ________
+- ¿Abre desde datos móviles?: Sí / No
+- ¿Usa HTTPS?: Sí / No
+- ¿Está prendido 24/7?: Sí / No
+- Responsable técnico (nombre y teléfono): ________
+- Puerto: ________
+- ¿Tiene backup?: Sí / No
 
-1. Anota la URL/dominio exacto que te den
-2. Vuelve a casa
-3. Envíame un mensaje: "La URL es `[URL_AQUI]`"
-4. Yo configuro todo en las apps
-5. Genero APK + listo
+## Importante
 
----
+Con esos datos ya se puede dejar funcionando:
+- App de PC (admin)
+- App de celular (mensajero)
 
-## Si todo falla / no tienen nada
-
-Dile que necesitan:
-1. Una PC que esté siempre encendida
-2. Una URL pública (puede ser dominio propio o IP fija)
-3. Certificado HTTPS (recomendado)
-
-Si NO tienen nada: propón desplegar en **Render** (gratis para prueba), te doy costo 0 y listo en 15 min.
+Sin esos datos, las apps pueden abrir, pero no compartir información entre Chiapas y CDMX.

@@ -1,10 +1,11 @@
-{
+﻿{
   "appId": "com.zavalaexpress.mobile",
   "appName": "ZAVALAEXPRESS",
   "webDir": "www",
   "server": {
-    "url": "https://TU_DOMINIO_PUBLICO_AQUI",
+    "url": "https://www.zavalacorp.com.mx",
     "cleartext": false,
     "androidScheme": "https"
   }
 }
+
