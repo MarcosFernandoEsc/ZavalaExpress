@@ -4,4 +4,5 @@
     <string name="title_activity_main">ZAVALAEXPRESS</string>
     <string name="package_name">com.zavalaexpress.mobile</string>
     <string name="custom_url_scheme">com.zavalaexpress.mobile</string>
+    <string name="default_notification_channel_id">zavala-default</string>
 </resources>

@@ -3,10 +3,12 @@
   "appName": "ZAVALAEXPRESS",
   "webDir": "www",
   "server": {
-    "url": "https://zavalaexpress.onrender.com",
+    "url": "https://zavalacorp.com.mx",
     "cleartext": false,
     "androidScheme": "https"
   }
 }
+
+
 
 

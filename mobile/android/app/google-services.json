@@ -1,0 +1,29 @@
+﻿{
+  "project_info": {
+    "project_number": "497507816727",
+    "project_id": "zavalaexpress-prod",
+    "storage_bucket": "zavalaexpress-prod.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:497507816727:android:65e71e2b81245c8f61d352",
+        "android_client_info": {
+          "package_name": "com.zavalaexpress.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyBhRMOI1tzonBg_ZwjWq24tcdy-LR-W9Tk"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

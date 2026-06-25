@@ -13,12 +13,14 @@ set URL=%1
 
 echo Actualizando URL a: %URL%
 
-REM Actualizar desktop
-powershell -Command "(Get-Content 'desktop\config.json') -replace '\"appUrl\": \"[^\"]*\"', '\"appUrl\": \"%URL%\"' | Set-Content 'desktop\config.json'"
-echo OK: desktop/config.json
+REM Actualizar desktop y mobile usando script PowerShell dedicado
+powershell -NoProfile -ExecutionPolicy Bypass -File "update-url.ps1" -Url "%URL%"
+if errorlevel 1 (
+  echo ERROR: No se pudo actualizar la URL.
+  exit /b 1
+)
 
-REM Actualizar mobile
-powershell -Command "(Get-Content 'mobile\capacitor.config.json') -replace '\"url\": \"[^\"]*\"', '\"url\": \"%URL%\"' | Set-Content 'mobile\capacitor.config.json'"
+echo OK: desktop/config.json
 echo OK: mobile/capacitor.config.json
 
 echo.

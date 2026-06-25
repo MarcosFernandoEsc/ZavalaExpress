@@ -841,15 +841,6 @@ function parseServicioDate(v){
   const d=new Date(datetime);
   return Number.isNaN(d.valueOf())?null:d;
 }
-function formatTimeDistance(ms){
-  const abs=Math.abs(ms);
-  const days=Math.floor(abs/86400000);
-  const hours=Math.floor((abs%86400000)/3600000);
-  if(days>0)return `${days} día${days===1?'':'s'}`+(hours?` y ${hours} hrs`:``);
-  if(hours>0)return `${hours} hora${hours===1?'':'s'}`;
-  const minutes=Math.floor((abs%3600000)/60000);
-  return `${minutes} min`;
-}
 function enviarNotificacion(titulo,mensaje){
   if('Notification' in window && Notification.permission==='granted'){
     try{new Notification(titulo,{body:mensaje,icon:'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.svg'});}catch(e){}

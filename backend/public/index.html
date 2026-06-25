@@ -359,6 +359,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
       <div class="stat-card"><div class="sc-icon"><i class="ti ti-users" aria-hidden="true"></i></div><div class="sc-num" id="st-vis">0</div><div class="sc-lbl">Visitas hoy</div></div>
       <div class="stat-card"><div class="sc-icon" style="color:var(--ok);"><i class="ti ti-cash" aria-hidden="true"></i></div><div class="sc-num" id="st-ing" style="color:var(--ok);">$0</div><div class="sc-lbl">Ingresos hoy</div></div>
     </div>
+    <div id="recordatorio-panel" class="card" style="display:none;"></div>
     <div class="card">
       <div class="card-hdr"><div class="card-ttl"><i class="ti ti-car" aria-hidden="true"></i> Servicios recientes</div></div>
       <div id="ini-lista"></div>
@@ -698,16 +699,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
 </div><!-- /#app -->
 
 <script>
-if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=>{
-    navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
-  });
-}
-
 /* ══════════════════════════════════════════
    ALMACENAMIENTO — IndexedDB + localStorage
 ══════════════════════════════════════════ */
 const DB_NAME='ZavalaExpressDB2', DB_VER=2, STORE='datos';
+const LOCAL_STATE_KEY='ze_v5';
 const AUTH_TOKEN_KEY='ze_token';
 const APP_CONFIG={
   apiBaseUrl:
@@ -727,6 +723,13 @@ function saveAuthToken(token){
   }
 }
 
+function sanitizeStateForCache(state){
+  return {
+    ...state,
+    usuarios: (state.usuarios||[]).map(({pass, ...user}) => user),
+  };
+}
+
 function buildHeaders(extra={}){
   const headers = {'Content-Type':'application/json', ...extra};
   if(authToken) headers.Authorization = `Bearer ${authToken}`;
@@ -743,9 +746,70 @@ async function fetchApi(path, options={}){
   return response;
 }
 
+function getPushPlugin(){
+  return window.Capacitor?.Plugins?.PushNotifications || null;
+}
+
+async function registrarTokenPushRemoto(token){
+  if(!serverMode || !authToken || !token) return;
+  try{
+    await fetchApi('/api/zavala/push/register',{
+      method:'POST',
+      body: JSON.stringify({ token, platform:'android' })
+    });
+  }catch(e){
+    console.warn('No se pudo registrar token push en backend', e);
+  }
+}
+
 let syncInFlight = false;
 let syncPending = false;
 let lastSyncedPayload = '';
+let pushListenersReady = false;
+let pushRegistrationReady = false;
+
+async function iniciarPushNativo(){
+  if(pushRegistrationReady) return;
+  if(!sesion || sesion.rol!=='mensajero' || !serverMode || !authToken) return;
+
+  const PushNotifications = getPushPlugin();
+  if(!PushNotifications) return;
+
+  if(!pushListenersReady){
+    PushNotifications.addListener('registration', token => {
+      const value = token?.value || '';
+      if(value){
+        registrarTokenPushRemoto(value);
+      }
+    });
+
+    PushNotifications.addListener('registrationError', err => {
+      console.warn('Push registration error', err);
+    });
+
+    PushNotifications.addListener('pushNotificationReceived', notification => {
+      const msg = notification?.body || notification?.title || 'Nuevo aviso';
+      toast(msg);
+    });
+
+    PushNotifications.addListener('pushNotificationActionPerformed', () => {
+      renderInicio();
+      renderServicios();
+    });
+
+    pushListenersReady = true;
+  }
+
+  try{
+    const perm = await PushNotifications.requestPermissions();
+    if(perm.receive === 'granted'){
+      await PushNotifications.register();
+      pushRegistrationReady = true;
+    }
+  }catch(e){
+    console.warn('No se pudo iniciar push nativo', e);
+  }
+}
 
 function abrirDB(){
   return new Promise((res,rej)=>{
@@ -782,8 +846,8 @@ async function syncServidor(){
 
 function guardarTodo(){
   const j=JSON.stringify(D);
-  try{localStorage.setItem('ze_v5', j);}catch(e){}
-  dbSet('app',D).catch(()=>{});
+  try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
+  dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
   syncServidor();
 }
 
@@ -809,13 +873,6 @@ let fS='todos', tmpP=[], tmpFoto=null;
    CARGA DE DATOS
 ══════════════════════════════════════════ */
 async function cargarDatos(){
-  if(serverMode){
-    await cargarUsuariosRemotos();
-    if(authToken){
-      const ok = await cargarEstadoRemoto();
-      if(ok) return;
-    }
-  }
   if(APP_CONFIG.apiBaseUrl){
     try{
       const r=await fetch(APP_CONFIG.apiBaseUrl.replace(/\/$/,'')+'/api/zavala/state');
@@ -830,32 +887,6 @@ async function cargarDatos(){
   try{const ls=localStorage.getItem('ze_v5');if(ls){D=JSON.parse(ls);return;}}catch(e){}
 }
 
-async function cargarUsuariosRemotos(){
-  try{
-    const res = await fetchApi('/api/zavala/users', {method:'GET'});
-    if(res.ok){
-      const usuarios = await res.json();
-      if(Array.isArray(usuarios) && usuarios.length){
-        D.usuarios = usuarios;
-      }
-    }
-  }catch(e){}
-}
-
-async function cargarEstadoRemoto(){
-  try{
-    const res = await fetchApi('/api/zavala/state', {method:'GET'});
-    if(res.ok){
-      const state = await res.json();
-      if(state && state.servicios!==undefined){
-        D = state;
-        return true;
-      }
-    }
-  }catch(e){}
-  return false;
-}
-
 /* ══════════════════════════════════════════
    UTILIDADES
 ══════════════════════════════════════════ */
@@ -864,6 +895,98 @@ function fFecha(d){if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
 function abrirModal(id){document.getElementById(id).classList.add('open');}
 function cerrarModal(id){document.getElementById(id).classList.remove('open');}
+function parseServicioDate(v){
+  if(!v||!v.fecha) return null;
+  const hora=v.hora||'12:00';
+  const datetime=`${v.fecha}T${hora.length===5?hora:hora.slice(0,5)}:00`;
+  const d=new Date(datetime);
+  return Number.isNaN(d.valueOf())?null:d;
+}
+function enviarNotificacion(titulo,mensaje){
+  if('Notification' in window && Notification.permission==='granted'){
+    try{new Notification(titulo,{body:mensaje,icon:'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.svg'});}catch(e){}
+  }
+  toast(mensaje);
+}
+function solicitarPermisoNotificaciones(){
+  if(!('Notification' in window))return;
+  if(Notification.permission==='default'){
+    Notification.requestPermission().then(()=>{});
+  }
+}
+function buildRecordatorioPanel(){
+  const panel=document.getElementById('recordatorio-panel');
+  if(!panel)return;
+  const recordatorios=getRecordatoriosPendientes();
+  if(!recordatorios.length){panel.style.display='none';return;}
+  panel.style.display='block';
+  panel.innerHTML=`<div class="card-hdr"><div class="card-ttl"><i class="ti ti-bell" aria-hidden="true"></i> Recordatorios</div></div>${recordatorios.map(r=>`<div style="padding:10px 0;border-bottom:1px solid rgba(13,27,62,.08);"><strong>${r.titulo}</strong><div style="font-size:12px;color:var(--sub);margin-top:4px;">${r.mensaje}</div></div>`).join('')}`;
+}
+function getRecordatoriosPendientes(){
+  if(!sesion||sesion.rol!=='mensajero')return[];
+  const ahora=new Date();
+  const pendientes=[];
+  const servicios=serviciosVisibles().filter(v=>!v.eliminadoPor);
+  servicios.forEach(v=>{
+    const when=parseServicioDate(v);
+    if(!when)return;
+    v.recordatoriosEnviadas=v.recordatoriosEnviadas||{};
+    const recordatorios=[
+      {key:'pre2d',offset:-2*24*3600*1000,label:'2 días antes',mensaje:`Servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'pre1d',offset:-24*3600*1000,label:'1 día antes',mensaje:`Servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'pre3h',offset:-3*3600*1000,label:'3 horas antes',mensaje:`Servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'postFinalizar',offset:0,label:'Finalizar entrega',mensaje:`Ya pasó la hora de este servicio. Recuerda finalizarlo.` ,after:true}
+    ];
+    recordatorios.forEach(r=>{
+      if(v.recordatoriosEnviadas[r.key])return;
+      const target = new Date(when.valueOf() + r.offset);
+      if(r.after){
+        if(ahora>when && !v.finalizadoPor){
+          pendientes.push({titulo:r.label, mensaje:`${r.mensaje} (${v.folio})`, id:v.id, key:r.key});
+        }
+      } else if(ahora>=target && ahora<new Date(target.valueOf()+3600000)){
+        pendientes.push({titulo:r.label, mensaje:`${r.mensaje} (${v.folio})`, id:v.id, key:r.key});
+      }
+    });
+  });
+  return pendientes.sort((a,b)=>a.id-b.id);
+}
+function marcarRecordatorioEnviado(v,key){
+  v.recordatoriosEnviadas=v.recordatoriosEnviadas||{};
+  v.recordatoriosEnviadas[key]=true;
+}
+function checkRecordatorios(){
+  if(!sesion||sesion.rol!=='mensajero')return;
+  const ahora=new Date();
+  let send=false;
+  serviciosVisibles().filter(v=>!v.eliminadoPor).forEach(v=>{
+    const when=parseServicioDate(v);
+    if(!when) return;
+    v.recordatoriosEnviadas=v.recordatoriosEnviadas||{};
+    const avisos=[
+      {key:'pre2d',time:new Date(when.valueOf()-2*24*3600*1000),mensaje:`Tienes un servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'pre1d',time:new Date(when.valueOf()-24*3600*1000),mensaje:`Recuerda que tienes un servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'pre3h',time:new Date(when.valueOf()-3*3600*1000),mensaje:`En 3 horas tienes servicio programado para las ${v.hora||'00:00'}.`},
+      {key:'postFinalizar',time:when,after:true,mensaje:`Ya pasó la hora programada de este servicio. Finaliza la entrega cuando puedas.`}
+    ];
+    avisos.forEach(a=>{
+      if(v.recordatoriosEnviadas[a.key])return;
+      if(a.after){
+        if(ahora> a.time && !v.finalizadoPor){
+          enviarNotificacion('Recordatorio de entrega', a.mensaje);
+          marcarRecordatorioEnviado(v,a.key);
+          send=true;
+        }
+      } else if(ahora>=a.time && ahora < new Date(a.time.valueOf()+60000)){
+        enviarNotificacion('Recordatorio de entrega', a.mensaje);
+        marcarRecordatorioEnviado(v,a.key);
+        send=true;
+      }
+    });
+  });
+  if(send) guardarTodo();
+  buildRecordatorioPanel();
+}
 function msgNom(id){const m=D.mensajeros.find(x=>x.id===id);return m?m.nombre:'Sin asignar';}
 function ini(n){return(n||'?').split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();}
 function esAdmin(){return sesion&&sesion.rol==='admin';}
@@ -978,9 +1101,9 @@ function actualizarPuntos(){
   }
 }
 
-function verificarPIN(){
+async function verificarPIN(){
   if(serverMode){
-    iniciarLoginRemoto(pinUserSel.user, pinBuffer);
+    await iniciarLoginRemoto(pinUserSel.user,pinBuffer);
     return;
   }
   if(pinUserSel.pass===pinBuffer){
@@ -1065,11 +1188,17 @@ function entrarConUsuario(found){
   iniciarVista();
 }
 
-function doLogout(){
+async function doLogout(){
   if(authToken && serverMode){
-    try{ fetchApi('/api/zavala/logout', { method: 'POST' }); }catch(e){}
+    try{
+      const res = await fetchApi('/api/zavala/logout', {method:'POST'});
+      if(res && !res.ok){
+        console.warn('Logout remoto falló');
+      }
+    }catch(e){}
   }
   saveAuthToken(null);
+  pushRegistrationReady=false;
   sesion=null;
   pinBuffer='';
   pinUserSel=null;
@@ -1097,8 +1226,12 @@ function iniciarVista(){
   document.getElementById('ini-fecha').textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
   document.getElementById('ini-sal').textContent='Hola, '+sesion.nombre.split(' ')[0]+' 👋';
   llenarSels();
+  solicitarPermisoNotificaciones();
   renderInicio();
   actualizarDotAuditoria();
+  checkRecordatorios();
+  setInterval(checkRecordatorios, 60000);
+  iniciarPushNativo();
 }
 
 /* ══════════════════════════════════════════
@@ -1205,7 +1338,12 @@ function verDetalle(id){
       ?`<div class="rv-foto" onclick="verFoto(${id})"><img src="${v.foto}" alt="Evidencia" /><div style="padding:8px 12px;font-size:12px;color:var(--c3);font-weight:600;display:flex;align-items:center;gap:5px;"><i class="ti ti-zoom-in" aria-hidden="true"></i> Toca para ampliar</div></div>`
       :(!elim?`<div class="foto-zone" onclick="document.getElementById('foto-det').click()"><i class="ti ti-camera" aria-hidden="true"></i><span>Sin foto — Toca para agregar</span></div><input type="file" id="foto-det" accept="image/*" capture="environment" style="display:none;" onchange="guardarFotoDet(this,${id})" />`:'<div style="font-size:12px;color:var(--sub);"><i class="ti ti-camera" aria-hidden="true"></i> Sin evidencia fotográfica</div>')}
     ${!elim?`
-    ${v.finalizadoPor?`<div class="finish-box"><h3>Servicio finalizado</h3><div class="finish-meta"><strong>Por:</strong> ${v.finalizadoPor}<br><strong>Resultado:</strong> ${v.finalizadoResultado||'Finalizado correctamente'}<br><strong>Fecha:</strong> ${v.finalizadoEn?new Date(v.finalizadoEn).toLocaleString('es-MX'):'—'}</div>${v.finalizadoReporte?`<div style="margin-top:10px;font-size:13px;color:var(--txt);"><strong>Reporte:</strong> ${v.finalizadoReporte}</div>`:''}${v.fotoFinal?`<div class="rv-foto" style="margin-top:12px;"><img src="${v.fotoFinal}" alt="Comprobante final" /></div>`:''}</div>`:''}
+    ${v.finalizadoPor?`<div class="finish-box"><h3>Servicio finalizado</h3><div class="finish-meta"><strong>Por:</strong> ${v.finalizadoPor}<br><strong>Resultado:</strong> ${v.finalizadoResultado||'Finalizado correctamente'}<br><strong>Fecha:</strong> ${v.finalizadoEn?new Date(v.finalizadoEn).toLocaleString('es-MX'):'—'}</div>${v.finalizadoReporte?`<div style="margin-top:10px;font-size:13px;color:var(--txt);"><strong>Reporte:</strong> ${v.finalizadoReporte}</div>`:''}
+      ${v.fotoFinal?`<div style="margin-top:12px;">
+        <div class="rv-foto" onclick="verFoto(${id})"><img src="${v.fotoFinal}" alt="Comprobante final" /></div>
+        ${sesion&&sesion.msgId===v.msgId&&((v.fotoFinalReemplazos||0)<1)?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;"><input type="file" id="repl-foto-${id}" accept="image/*" capture="environment" style="display:none;" onchange="guardarReemplazoFoto(this,${id})" /><button class="btn-sm btn-ghost" onclick="document.getElementById('repl-foto-${id}').click()">Reemplazar foto (1 vez)</button><span style="font-size:12px;color:var(--sub);">Reemplazos usados: ${(v.fotoFinalReemplazos||0)}/1</span></div>`:''}
+      </div>`:''}
+    </div>`:''}
     <div style="margin-top:16px;">
       <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Cambiar estatus</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
@@ -1395,6 +1533,23 @@ function guardarFinalizacion(){
   cerrarModal('m-final');
   renderInicio();renderServicios();
   toast('✓ Servicio finalizado');
+}
+
+function guardarReemplazoFoto(input,id){
+  const f = (input.files && input.files[0]); if(!f) return;
+  const v = D.servicios.find(x=>x.id===id);
+  if(!v){toast('Servicio no encontrado');return;}
+  if(!sesion || sesion.msgId!==v.msgId){alert('No tienes permiso para reemplazar la foto.');return;}
+  if((v.fotoFinalReemplazos||0) >= 1){alert('Ya no puedes reemplazar la foto.');return;}
+  const r = new FileReader();
+  r.onload = e => {
+    v.fotoFinal = e.target.result;
+    v.fotoFinalReemplazos = (v.fotoFinalReemplazos||0) + 1;
+    guardarTodo();
+    verDetalle(id);
+    toast('✓ Foto final reemplazada');
+  };
+  r.readAsDataURL(f);
 }
 
 /* ══════════════════════════════════════════
@@ -2004,6 +2159,13 @@ function eliminarReporteRecibido(idx){
 }
 
 iniciarApp();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+  });
+}
 </script>
 </body>
 </html>

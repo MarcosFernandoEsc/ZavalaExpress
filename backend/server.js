@@ -2,6 +2,7 @@ import express from 'express';
 import cors from 'cors';
 import sqlite3 from 'sqlite3';
 import crypto from 'node:crypto';
+import admin from 'firebase-admin';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -31,6 +32,41 @@ const defaultState = {
 };
 
 let db = null;
+let firebaseMessaging = null;
+
+function initFirebaseMessaging() {
+  if (firebaseMessaging) return;
+
+  try {
+    let serviceAccount = null;
+    if (process.env.FIREBASE_SERVICE_ACCOUNT_JSON) {
+      serviceAccount = JSON.parse(process.env.FIREBASE_SERVICE_ACCOUNT_JSON);
+    } else if (process.env.FIREBASE_PROJECT_ID && process.env.FIREBASE_CLIENT_EMAIL && process.env.FIREBASE_PRIVATE_KEY) {
+      serviceAccount = {
+        project_id: process.env.FIREBASE_PROJECT_ID,
+        client_email: process.env.FIREBASE_CLIENT_EMAIL,
+        private_key: process.env.FIREBASE_PRIVATE_KEY.replace(/\\n/g, '\n'),
+      };
+    }
+
+    if (!serviceAccount) {
+      console.warn('Firebase no configurado. Push nativo deshabilitado.');
+      return;
+    }
+
+    if (!admin.apps.length) {
+      admin.initializeApp({
+        credential: admin.credential.cert(serviceAccount),
+      });
+    }
+
+    firebaseMessaging = admin.messaging();
+    console.log('Firebase push habilitado.');
+  } catch (error) {
+    console.error('No se pudo inicializar Firebase Admin:', error.message);
+    firebaseMessaging = null;
+  }
+}
 
 function run(sql, params = []) {
   return new Promise((resolve, reject) => {
@@ -157,10 +193,161 @@ async function initDatabase() {
     createdAt TEXT,
     expiresAt TEXT
   )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS device_tokens (
+    token TEXT PRIMARY KEY,
+    userId INTEGER,
+    msgId INTEGER,
+    platform TEXT,
+    updatedAt TEXT
+  )`);
+
+  await run(`CREATE TABLE IF NOT EXISTS push_events (
+    eventKey TEXT PRIMARY KEY,
+    createdAt TEXT
+  )`);
 }
 
 function nowISO() {
   return new Date().toISOString();
+}
+
+function parseServiceDateTime(service) {
+  if (!service || !service.fecha) return null;
+  const hhmm = (service.hora || '12:00').slice(0, 5);
+  const date = new Date(`${service.fecha}T${hhmm}:00`);
+  if (Number.isNaN(date.valueOf())) return null;
+  return date;
+}
+
+async function recordPushEvent(eventKey) {
+  try {
+    await run('INSERT INTO push_events (eventKey, createdAt) VALUES (?, ?)', [eventKey, nowISO()]);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+async function removeDeviceToken(token) {
+  await run('DELETE FROM device_tokens WHERE token = ?', [token]);
+}
+
+async function upsertDeviceToken({ token, userId, msgId, platform }) {
+  await run(
+    `INSERT INTO device_tokens (token, userId, msgId, platform, updatedAt)
+     VALUES (?, ?, ?, ?, ?)
+     ON CONFLICT(token) DO UPDATE SET
+       userId = excluded.userId,
+       msgId = excluded.msgId,
+       platform = excluded.platform,
+       updatedAt = excluded.updatedAt`,
+    [token, userId, msgId, platform || 'android', nowISO()]
+  );
+}
+
+async function getTokensByMsgId(msgId) {
+  if (!msgId) return [];
+  const rows = await all('SELECT token FROM device_tokens WHERE msgId = ?', [msgId]);
+  return rows.map((r) => r.token).filter(Boolean);
+}
+
+async function sendPushToMsgId(msgId, title, body, data = {}) {
+  if (!firebaseMessaging || !msgId) return;
+  const tokens = await getTokensByMsgId(msgId);
+  if (!tokens.length) return;
+
+  const response = await firebaseMessaging.sendEachForMulticast({
+    tokens,
+    notification: { title, body },
+    data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+    android: {
+      priority: 'high',
+      notification: {
+        channelId: 'zavala-default',
+      },
+    },
+  });
+
+  if (response.failureCount > 0) {
+    response.responses.forEach(async (r, i) => {
+      if (!r.success) {
+        const code = r.error?.code || '';
+        if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+          await removeDeviceToken(tokens[i]);
+        }
+      }
+    });
+  }
+}
+
+async function notifyStateTransitions(currentState, nextState) {
+  if (!firebaseMessaging) return;
+  const currentById = new Map((currentState.servicios || []).map((s) => [s.id, s]));
+
+  for (const service of nextState.servicios || []) {
+    if (!service || service.eliminadoPor) continue;
+    const prev = currentById.get(service.id);
+
+    const isNew = !prev;
+    const reassigned = prev && prev.msgId !== service.msgId;
+    if ((isNew || reassigned) && service.msgId) {
+      const eventKey = `srv:${service.id}:assigned:${service.msgId}`;
+      const shouldSend = await recordPushEvent(eventKey);
+      if (shouldSend) {
+        await sendPushToMsgId(
+          service.msgId,
+          'Nuevo servicio asignado',
+          `${service.folio || 'Servicio'} para ${service.fecha || 'hoy'} ${service.hora || ''}`.trim(),
+          { type: 'assigned', serviceId: service.id, folio: service.folio || '' }
+        );
+      }
+    }
+  }
+}
+
+async function processReminderPushes() {
+  if (!firebaseMessaging) return;
+  const state = await loadState();
+  const now = new Date();
+
+  for (const service of state.servicios || []) {
+    if (!service || service.eliminadoPor || service.finalizadoPor || !service.msgId) continue;
+    const when = parseServiceDateTime(service);
+    if (!when) continue;
+
+    const reminders = [
+      { key: 'pre2d', at: new Date(when.valueOf() - 2 * 24 * 60 * 60 * 1000), title: 'Recordatorio: servicio en 2 dias' },
+      { key: 'pre1d', at: new Date(when.valueOf() - 24 * 60 * 60 * 1000), title: 'Recordatorio: servicio manana' },
+      { key: 'pre3h', at: new Date(when.valueOf() - 3 * 60 * 60 * 1000), title: 'Recordatorio: servicio en 3 horas' },
+      { key: 'overdue', at: when, title: 'Servicio pendiente por finalizar', overdue: true },
+    ];
+
+    for (const reminder of reminders) {
+      if (now < reminder.at) continue;
+      const eventKey = `srv:${service.id}:${reminder.key}`;
+      const shouldSend = await recordPushEvent(eventKey);
+      if (!shouldSend) continue;
+
+      const body = reminder.overdue
+        ? `Ya paso la hora de ${service.folio || 'servicio'}. Finaliza la entrega.`
+        : `${service.folio || 'Servicio'} programado ${service.fecha || ''} ${service.hora || ''}`.trim();
+
+      await sendPushToMsgId(service.msgId, reminder.title, body, {
+        type: reminder.key,
+        serviceId: service.id,
+        folio: service.folio || '',
+      });
+    }
+  }
+}
+
+function startReminderLoop() {
+  if (!firebaseMessaging) return;
+  processReminderPushes().catch((error) => console.error('Error en reminder inicial:', error.message));
+  setInterval(() => {
+    processReminderPushes().catch((error) => console.error('Error en reminder loop:', error.message));
+  }, 60 * 1000);
 }
 
 async function createSession(userId) {
@@ -497,6 +684,42 @@ app.post('/api/zavala/logout', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/zavala/push/register', requireAuth, async (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  const platform = String(req.body?.platform || 'android').trim();
+  if (!token) {
+    return res.status(400).json({ ok: false, message: 'Token faltante' });
+  }
+
+  try {
+    await upsertDeviceToken({
+      token,
+      userId: req.user.id,
+      msgId: req.user.msgId,
+      platform,
+    });
+    res.json({ ok: true, registered: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error registrando token push' });
+  }
+});
+
+app.post('/api/zavala/push/unregister', requireAuth, async (req, res) => {
+  const token = String(req.body?.token || '').trim();
+  if (!token) {
+    return res.status(400).json({ ok: false, message: 'Token faltante' });
+  }
+
+  try {
+    await removeDeviceToken(token);
+    res.json({ ok: true, unregistered: true });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error eliminando token push' });
+  }
+});
+
 app.post('/api/zavala/state', requireAuth, async (req, res) => {
   const incoming = req.body;
   if (!incoming || typeof incoming !== 'object') {
@@ -524,6 +747,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     };
 
     await saveState(next);
+    notifyStateTransitions(current, next).catch((error) => console.error('Error enviando push de cambios:', error.message));
     res.json({ ok: true, saved: true });
   } catch (error) {
     console.error(error);
@@ -536,5 +760,7 @@ app.get('/', (_req, res) => {
 });
 
 app.listen(port, () => {
+  initFirebaseMessaging();
+  startReminderLoop();
   console.log(`ZAVALAEXPRESS backend escuchando en http://localhost:${port}`);
 });
