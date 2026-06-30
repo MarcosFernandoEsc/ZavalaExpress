@@ -5,7 +5,7 @@ services:
     plan: free
     branch: main
     rootDirectory: backend
-    buildCommand: npm install
+    buildCommand: npm install --no-package-lock
     startCommand: npm start
     envVars:
       - key: NODE_ENV

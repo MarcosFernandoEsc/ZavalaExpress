@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "Backend de avance para ZAVALAEXPRESS",
+  "engines": {
+    "node": "20.x"
+  },
   "scripts": {
     "start": "node server.js",
     "dev": "node --watch server.js"
@@ -12,6 +15,6 @@
     "cors": "^2.8.5",
     "express": "^4.19.2",
     "firebase-admin": "^12.7.0",
-    "sqlite3": "^6.0.1"
+    "sqlite3": "^5.1.6"
   }
 }
