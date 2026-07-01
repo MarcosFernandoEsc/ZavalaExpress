@@ -3,13 +3,24 @@ const path = require('path');
 const fs = require('fs');
 
 function readConfig() {
-  const configPath = path.join(__dirname, 'config.json');
-  try {
-    const raw = fs.readFileSync(configPath, 'utf8');
-    return JSON.parse(raw);
-  } catch {
-    return { appUrl: '' };
+  const configPaths = [
+    path.join(app.getAppPath(), 'config.json'),
+    path.join(path.dirname(process.execPath), 'config.json'),
+    path.join(process.resourcesPath, 'app', 'config.json')
+  ];
+
+  for (const configPath of configPaths) {
+    try {
+      if (fs.existsSync(configPath)) {
+        const raw = fs.readFileSync(configPath, 'utf8');
+        return JSON.parse(raw);
+      }
+    } catch {
+      continue;
+    }
   }
+
+  return { appUrl: '' };
 }
 
 function buildFallbackPage() {
@@ -26,7 +37,7 @@ function buildFallbackPage() {
 <body>
   <h1>ZAVALAEXPRESS</h1>
   <p>Configura la URL de tu servidor antes de usar la app.</p>
-  <p>Edita el archivo <code>desktop/config.json</code> y coloca tu URL HTTPS.</p>
+  <p>Edita el archivo <code>config.json</code> dentro de la carpeta de la app o en <code>desktop/config.json</code> durante el desarrollo.</p>
   <pre>{ "appUrl": "https://tu-dominio-publico.com" }</pre>
 </body>
 </html>`;
