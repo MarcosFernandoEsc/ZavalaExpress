@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import sqlite3 from 'sqlite3';
+import pg from 'pg';
 import crypto from 'node:crypto';
 import admin from 'firebase-admin';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
@@ -32,7 +33,9 @@ const defaultState = {
 };
 
 let db = null;
+let pgClient = null;
 let firebaseMessaging = null;
+let usePostgres = Boolean(process.env.DATABASE_URL);
 
 function initFirebaseMessaging() {
   if (firebaseMessaging) return;
@@ -69,6 +72,10 @@ function initFirebaseMessaging() {
 }
 
 function run(sql, params = []) {
+  if (usePostgres) {
+    return pgClient.query(sql, params).then((result) => result);
+  }
+
   return new Promise((resolve, reject) => {
     db.run(sql, params, function (err) {
       if (err) return reject(err);
@@ -78,6 +85,10 @@ function run(sql, params = []) {
 }
 
 function all(sql, params = []) {
+  if (usePostgres) {
+    return pgClient.query(sql, params).then((result) => result.rows);
+  }
+
   return new Promise((resolve, reject) => {
     db.all(sql, params, (err, rows) => {
       if (err) return reject(err);
@@ -87,6 +98,10 @@ function all(sql, params = []) {
 }
 
 function get(sql, params = []) {
+  if (usePostgres) {
+    return pgClient.query(sql, params).then((result) => result.rows[0] || null);
+  }
+
   return new Promise((resolve, reject) => {
     db.get(sql, params, (err, row) => {
       if (err) return reject(err);
@@ -100,9 +115,25 @@ async function ensureStorage() {
     mkdirSync(dataDir, { recursive: true });
   }
 
+  if (usePostgres) {
+    if (!pgClient) {
+      await openPostgres();
+    }
+    return;
+  }
+
   if (!db) {
     await openDatabase();
   }
+}
+
+async function openPostgres() {
+  const { Pool } = pg;
+  pgClient = new Pool({ connectionString: process.env.DATABASE_URL });
+  await pgClient.query('SELECT 1');
+  await initDatabase();
+  await migrateJsonState();
+  console.log('Postgres conectado.');
 }
 
 async function openDatabase() {
@@ -122,6 +153,95 @@ async function openDatabase() {
 }
 
 async function initDatabase() {
+  if (usePostgres) {
+    await run(`CREATE TABLE IF NOT EXISTS usuarios (
+      id INTEGER PRIMARY KEY,
+      nombre TEXT,
+      user TEXT,
+      pass TEXT,
+      rol TEXT,
+      msgId INTEGER
+    )`);
+
+    await run(`CREATE TABLE IF NOT EXISTS mensajeros (
+      id INTEGER PRIMARY KEY,
+      nombre TEXT,
+      tel TEXT,
+      zona TEXT
+    )`);
+
+    await run(`CREATE TABLE IF NOT EXISTS servicios (
+      id INTEGER PRIMARY KEY,
+      folio TEXT,
+      msgId INTEGER,
+      fecha TEXT,
+      hora TEXT,
+      monto REAL,
+      estatus TEXT,
+      obs TEXT,
+      foto TEXT,
+      creadoPor TEXT,
+      creadoEn TEXT,
+      finalizadoPor TEXT,
+      finalizadoEn TEXT,
+      finalizadoReporte TEXT,
+      finalizadoResultado TEXT,
+      fotoFinal TEXT,
+      fotoFinalReemplazos INTEGER,
+      eliminadoPor TEXT,
+      eliminadoEn TEXT,
+      editadoPor TEXT,
+      editadoEn TEXT,
+      personas TEXT
+    )`);
+
+    await run(`CREATE TABLE IF NOT EXISTS auditoria (
+      ts TEXT,
+      por TEXT,
+      rol TEXT,
+      folio TEXT,
+      msgNombre TEXT,
+      fecha TEXT,
+      hora TEXT,
+      personas TEXT,
+      monto REAL,
+      obs TEXT,
+      srvId INTEGER
+    )`);
+
+    await run(`CREATE TABLE IF NOT EXISTS reportesRecibidos (
+      id INTEGER PRIMARY KEY,
+      paquete TEXT
+    )`);
+
+    await run(`CREATE TABLE IF NOT EXISTS meta (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    )`);
+
+    await run(`CREATE TABLE IF NOT EXISTS sessions (
+      token TEXT PRIMARY KEY,
+      userId INTEGER,
+      createdAt TEXT,
+      expiresAt TEXT
+    )`);
+
+    await run(`CREATE TABLE IF NOT EXISTS device_tokens (
+      token TEXT PRIMARY KEY,
+      userId INTEGER,
+      msgId INTEGER,
+      platform TEXT,
+      updatedAt TEXT
+    )`);
+
+    await run(`CREATE TABLE IF NOT EXISTS push_events (
+      eventKey TEXT PRIMARY KEY,
+      createdAt TEXT
+    )`);
+
+    return;
+  }
+
   await run(`CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY,
     nombre TEXT,
