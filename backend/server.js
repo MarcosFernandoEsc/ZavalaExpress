@@ -76,7 +76,12 @@ function run(sql, params = []) {
     // convert '?' placeholders to $1, $2... for pg
     let i = 0;
     const converted = sql.replace(/\?/g, () => `$${++i}`);
-    return pgClient.query(converted, params).then((result) => result);
+    return pgClient.query(converted, params).then((result) => result).catch((error) => {
+      console.error('Postgres query error:', error.message);
+      console.error('  SQL:', converted);
+      console.error('  params:', params);
+      throw error;
+    });
   }
 
   return new Promise((resolve, reject) => {
@@ -138,8 +143,18 @@ async function openPostgres() {
   const { Pool } = pg;
   pgClient = new Pool({ connectionString: process.env.DATABASE_URL });
   await pgClient.query('SELECT 1');
-  await initDatabase();
-  await migrateJsonState();
+  try {
+    await initDatabase();
+  } catch (error) {
+    console.error('Error creando tablas en Postgres:', error.message);
+    throw error;
+  }
+  try {
+    await migrateJsonState();
+  } catch (error) {
+    console.error('Error migrando JSON a Postgres:', error.message);
+    throw error;
+  }
   console.log('Postgres conectado.');
 }
 
@@ -161,14 +176,19 @@ async function openDatabase() {
 
 async function initDatabase() {
   if (usePostgres) {
-    await run(`CREATE TABLE IF NOT EXISTS usuarios (
-      id INTEGER PRIMARY KEY,
-      nombre TEXT,
-      "user" TEXT,
-      pass TEXT,
-      rol TEXT,
-      msgId INTEGER
-    )`);
+    try {
+      await run(`CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY,
+        nombre TEXT,
+        username TEXT,
+        pass TEXT,
+        rol TEXT,
+        msgId INTEGER
+      )`);
+    } catch (error) {
+      console.error('Error creando tabla usuarios en Postgres:', error.message);
+      throw error;
+    }
 
     await run(`CREATE TABLE IF NOT EXISTS mensajeros (
       id INTEGER PRIMARY KEY,
@@ -252,7 +272,7 @@ async function initDatabase() {
   await run(`CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY,
     nombre TEXT,
-    "user" TEXT,
+    username TEXT,
     pass TEXT,
     rol TEXT,
     msgId INTEGER
@@ -577,7 +597,7 @@ async function loadState() {
     usuarios: usuarios.map((row) => ({
       id: row.id,
       nombre: row.nombre,
-      user: row.user,
+      user: row.username,
       pass: row.pass,
       rol: row.rol,
       msgId: row.msgId === null ? null : row.msgId,
@@ -668,7 +688,7 @@ async function saveState(state) {
     await run('DELETE FROM reportesRecibidos');
     await run('DELETE FROM meta');
 
-    const insertUsuario = 'INSERT INTO usuarios (id, nombre, "user", pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?)';
+    const insertUsuario = 'INSERT INTO usuarios (id, nombre, username, pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?)';
     for (const u of state.usuarios || []) {
       await run(insertUsuario, [u.id, u.nombre, u.user, u.pass, u.rol, u.msgId]);
     }
