@@ -73,7 +73,10 @@ function initFirebaseMessaging() {
 
 function run(sql, params = []) {
   if (usePostgres) {
-    return pgClient.query(sql, params).then((result) => result);
+    // convert '?' placeholders to $1, $2... for pg
+    let i = 0;
+    const converted = sql.replace(/\?/g, () => `$${++i}`);
+    return pgClient.query(converted, params).then((result) => result);
   }
 
   return new Promise((resolve, reject) => {
@@ -86,7 +89,9 @@ function run(sql, params = []) {
 
 function all(sql, params = []) {
   if (usePostgres) {
-    return pgClient.query(sql, params).then((result) => result.rows);
+    let i = 0;
+    const converted = sql.replace(/\?/g, () => `$${++i}`);
+    return pgClient.query(converted, params).then((result) => result.rows);
   }
 
   return new Promise((resolve, reject) => {
@@ -99,7 +104,9 @@ function all(sql, params = []) {
 
 function get(sql, params = []) {
   if (usePostgres) {
-    return pgClient.query(sql, params).then((result) => result.rows[0] || null);
+    let i = 0;
+    const converted = sql.replace(/\?/g, () => `$${++i}`);
+    return pgClient.query(converted, params).then((result) => result.rows[0] || null);
   }
 
   return new Promise((resolve, reject) => {
@@ -157,7 +164,7 @@ async function initDatabase() {
     await run(`CREATE TABLE IF NOT EXISTS usuarios (
       id INTEGER PRIMARY KEY,
       nombre TEXT,
-      user TEXT,
+      "user" TEXT,
       pass TEXT,
       rol TEXT,
       msgId INTEGER
@@ -245,7 +252,7 @@ async function initDatabase() {
   await run(`CREATE TABLE IF NOT EXISTS usuarios (
     id INTEGER PRIMARY KEY,
     nombre TEXT,
-    user TEXT,
+    "user" TEXT,
     pass TEXT,
     rol TEXT,
     msgId INTEGER
@@ -661,7 +668,7 @@ async function saveState(state) {
     await run('DELETE FROM reportesRecibidos');
     await run('DELETE FROM meta');
 
-    const insertUsuario = 'INSERT INTO usuarios (id, nombre, user, pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?)';
+    const insertUsuario = 'INSERT INTO usuarios (id, nombre, "user", pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?)';
     for (const u of state.usuarios || []) {
       await run(insertUsuario, [u.id, u.nombre, u.user, u.pass, u.rol, u.msgId]);
     }
