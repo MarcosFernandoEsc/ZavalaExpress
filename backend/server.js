@@ -145,8 +145,9 @@ async function openPostgres() {
   await pgClient.query('SELECT 1');
   try {
     await initDatabase();
+    await normalizePostgresSchema();
   } catch (error) {
-    console.error('Error creando tablas en Postgres:', error.message);
+    console.error('Error creando o normalizando tablas en Postgres:', error.message);
     throw error;
   }
   try {
@@ -178,12 +179,12 @@ async function initDatabase() {
   if (usePostgres) {
     try {
       await run(`CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY,
+        id BIGINT PRIMARY KEY,
         nombre TEXT,
         username TEXT,
         pass TEXT,
         rol TEXT,
-        msgId INTEGER
+        msgId BIGINT
       )`);
     } catch (error) {
       console.error('Error creando tabla usuarios en Postgres:', error.message);
@@ -191,16 +192,16 @@ async function initDatabase() {
     }
 
     await run(`CREATE TABLE IF NOT EXISTS mensajeros (
-      id INTEGER PRIMARY KEY,
+      id BIGINT PRIMARY KEY,
       nombre TEXT,
       tel TEXT,
       zona TEXT
     )`);
 
     await run(`CREATE TABLE IF NOT EXISTS servicios (
-      id INTEGER PRIMARY KEY,
+      id BIGINT PRIMARY KEY,
       folio TEXT,
-      msgId INTEGER,
+      msgId BIGINT,
       fecha TEXT,
       hora TEXT,
       monto REAL,
@@ -214,7 +215,7 @@ async function initDatabase() {
       finalizadoReporte TEXT,
       finalizadoResultado TEXT,
       fotoFinal TEXT,
-      fotoFinalReemplazos INTEGER,
+      fotoFinalReemplazos BIGINT,
       eliminadoPor TEXT,
       eliminadoEn TEXT,
       editadoPor TEXT,
@@ -233,11 +234,11 @@ async function initDatabase() {
       personas TEXT,
       monto REAL,
       obs TEXT,
-      srvId INTEGER
+      srvId BIGINT
     )`);
 
     await run(`CREATE TABLE IF NOT EXISTS reportesRecibidos (
-      id INTEGER PRIMARY KEY,
+      id BIGINT PRIMARY KEY,
       paquete TEXT
     )`);
 
@@ -248,15 +249,15 @@ async function initDatabase() {
 
     await run(`CREATE TABLE IF NOT EXISTS sessions (
       token TEXT PRIMARY KEY,
-      userId INTEGER,
+      userId BIGINT,
       createdAt TEXT,
       expiresAt TEXT
     )`);
 
     await run(`CREATE TABLE IF NOT EXISTS device_tokens (
       token TEXT PRIMARY KEY,
-      userId INTEGER,
-      msgId INTEGER,
+      userId BIGINT,
+      msgId BIGINT,
       platform TEXT,
       updatedAt TEXT
     )`);
@@ -353,6 +354,60 @@ async function initDatabase() {
     eventKey TEXT PRIMARY KEY,
     createdAt TEXT
   )`);
+}
+
+async function normalizePostgresSchema() {
+  const result = await pgClient.query(`
+    SELECT column_name
+    FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'usuarios'
+  `);
+  const columns = new Set(result.rows.map((row) => row.column_name));
+  console.log('Postgres usuarios columns before normalize:', [...columns].join(', '));
+
+  if (columns.has('user') && !columns.has('username')) {
+    await run('ALTER TABLE usuarios RENAME COLUMN "user" TO username');
+    console.log('Renamed usuarios.user to usuarios.username');
+    columns.delete('user');
+    columns.add('username');
+  }
+
+  if (!columns.has('username')) {
+    await run('ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS username TEXT');
+    console.log('Added missing usuarios.username column');
+    columns.add('username');
+  }
+
+  if (columns.has('user')) {
+    await run('UPDATE usuarios SET username = "user" WHERE username IS NULL');
+    await run('ALTER TABLE usuarios DROP COLUMN IF EXISTS "user"');
+    console.log('Dropped legacy usuarios.user column');
+    columns.delete('user');
+  }
+
+  const bigintColumns = [
+    { table: 'usuarios', column: 'id' },
+    { table: 'usuarios', column: 'msgId' },
+    { table: 'mensajeros', column: 'id' },
+    { table: 'servicios', column: 'id' },
+    { table: 'servicios', column: 'msgId' },
+    { table: 'auditoria', column: 'srvId' },
+    { table: 'reportesRecibidos', column: 'id' },
+    { table: 'sessions', column: 'userId' },
+    { table: 'device_tokens', column: 'userId' },
+    { table: 'device_tokens', column: 'msgId' },
+  ];
+
+  for (const { table, column } of bigintColumns) {
+    try {
+      await run(`ALTER TABLE ${table} ALTER COLUMN ${column} TYPE BIGINT`);
+    } catch (error) {
+      // Ignore errors when the column does not exist or already has the correct type.
+      if (!error.message.includes('column') && !error.message.includes('does not exist')) {
+        console.warn(`No changes made to ${table}.${column}:`, error.message);
+      }
+    }
+  }
 }
 
 function nowISO() {
