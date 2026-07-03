@@ -572,14 +572,24 @@ async function findSession(token) {
   return session;
 }
 
+function resolveAuthToken(req) {
+  const header = req.headers.authorization;
+  if (header && header.startsWith('Bearer ')) {
+    return header.slice(7);
+  }
+  if (req.query && req.query.token) {
+    return String(req.query.token);
+  }
+  return null;
+}
+
 async function requireAuth(req, res, next) {
-  const authHeader = req.headers.authorization || '';
-  if (!authHeader.startsWith('Bearer ')) {
-    console.log('Unauthorized request: missing Bearer header');
+  const token = resolveAuthToken(req);
+  if (!token) {
+    console.log('Unauthorized request: missing Bearer header or token query');
     return res.status(401).json({ ok: false, message: 'No autorizado' });
   }
 
-  const token = authHeader.slice(7);
   try {
     const session = await findSession(token);
     if (!session) {
@@ -850,6 +860,14 @@ app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(join(__dirname, 'public')));
+
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.parse.failed') {
+    console.error('JSON parse error:', err.message);
+    return res.status(400).json({ ok: false, message: 'JSON inválido en la petición' });
+  }
+  next(err);
+});
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, app: 'zavalaexpress-backend', status: 'advance' });
