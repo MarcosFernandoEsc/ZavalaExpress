@@ -572,6 +572,15 @@ async function findSession(token) {
   return session;
 }
 
+async function getUserById(userId) {
+  if (userId === undefined || userId === null) return null;
+  const numericId = Number(userId);
+  const user = await get('SELECT * FROM usuarios WHERE id = ?', [numericId]);
+  if (user) return user;
+  const state = await loadState();
+  return (state.usuarios || []).find((u) => Number(u.id) === numericId) || null;
+}
+
 function resolveAuthToken(req) {
   const header = req.headers.authorization;
   if (header && header.startsWith('Bearer ')) {
@@ -596,7 +605,7 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ ok: false, message: 'Token inválido o expirado' });
     }
 
-    const user = await get('SELECT * FROM usuarios WHERE id = ?', [session.userId]);
+    const user = await getUserById(session.userId);
     if (!user) {
       console.log('Authenticated session user not found:', session.userId);
       return res.status(401).json({ ok: false, message: 'Usuario no encontrado' });

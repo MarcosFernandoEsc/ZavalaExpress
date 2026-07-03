@@ -832,13 +832,21 @@ async function syncServidor(){
       syncPending = false;
       const payload = JSON.stringify(D);
       if(payload===lastSyncedPayload)continue;
-      await fetchApi('/api/zavala/state',{
+      const res = await fetchApi('/api/zavala/state',{
         method:'POST',
         body:payload
       });
-      lastSyncedPayload = payload;
+      if(res && res.ok){
+        lastSyncedPayload = payload;
+      } else {
+        console.warn('syncServidor failed', res ? res.status : 'no response');
+        syncPending = true;
+      }
     }
-  }catch(e){}
+  }catch(e){
+    console.warn('syncServidor error', e);
+    syncPending = true;
+  }
   finally{
     syncInFlight = false;
   }
