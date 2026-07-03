@@ -873,14 +873,14 @@ let fS='todos', tmpP=[], tmpFoto=null;
    CARGA DE DATOS
 ══════════════════════════════════════════ */
 async function cargarDatos(){
-  if(APP_CONFIG.apiBaseUrl){
+  if(APP_CONFIG.apiBaseUrl && authToken){
     try{
-      const r=await fetch(APP_CONFIG.apiBaseUrl.replace(/\/$/,'')+'/api/zavala/state');
-      if(r.ok){
+      const r=await fetchApi('/api/zavala/state');
+      if(r && r.ok){
         const srv=await r.json();
         if(srv&&srv.servicios!==undefined){D=srv;return;}
       }
-    }catch(e){}
+    }catch(e){console.warn('No se pudo cargar estado remoto:', e);}
   }
   const idb=await dbGet('app').catch(()=>null);
   if(idb&&idb.servicios!==undefined){D=idb;return;}
