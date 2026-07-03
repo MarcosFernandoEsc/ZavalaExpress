@@ -630,9 +630,10 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ ok: false, message: 'Token inválido o expirado' });
     }
 
-    const user = await getUserById(session.userId);
+    const sessionUserId = session.userId ?? session.userid;
+    const user = await getUserById(sessionUserId);
     if (!user) {
-      console.log('Authenticated session user not found:', session.userId);
+      console.log('Authenticated session user not found:', sessionUserId, 'raw session:', session);
       return res.status(401).json({ ok: false, message: 'Usuario no encontrado' });
     }
 

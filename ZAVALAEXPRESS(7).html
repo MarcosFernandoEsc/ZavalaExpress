@@ -732,12 +732,20 @@ function sanitizeStateForCache(state){
 
 function buildHeaders(extra={}){
   const headers = {'Content-Type':'application/json', ...extra};
-  if(authToken) headers.Authorization = `Bearer ${authToken}`;
+  if(authToken){
+    headers.Authorization = `Bearer ${authToken}`;
+    headers['X-Access-Token'] = authToken;
+    headers['X-Auth-Token'] = authToken;
+  }
   return headers;
 }
 
 async function fetchApi(path, options={}){
-  const url = APP_CONFIG.apiBaseUrl.replace(/\/$/, '') + path;
+  let url = APP_CONFIG.apiBaseUrl.replace(/\/$/, '') + path;
+  if(authToken && path.startsWith('/api/')){
+    const separator = url.includes('?') ? '&' : '?';
+    url += `${separator}token=${encodeURIComponent(authToken)}`;
+  }
   const response = await fetch(url, {...options, headers: buildHeaders(options.headers)});
   if(response.status===401){
     saveAuthToken(null);
@@ -771,13 +779,19 @@ async function syncServidor(){
       syncPending = false;
       const payload = JSON.stringify(D);
       if(payload===lastSyncedPayload)continue;
-      await fetchApi('/api/zavala/state',{
+      const res = await fetchApi('/api/zavala/state',{
         method:'POST',
         body:payload
       });
-      lastSyncedPayload = payload;
+      if(res && res.ok){
+        lastSyncedPayload = payload;
+      } else {
+        syncPending = true;
+      }
     }
-  }catch(e){}
+  }catch(e){
+    syncPending = true;
+  }
   finally{
     syncInFlight = false;
   }
@@ -814,12 +828,37 @@ let fS='todos', tmpP=[], tmpFoto=null;
 async function cargarDatos(){
   if(APP_CONFIG.apiBaseUrl){
     try{
-      const r=await fetch(APP_CONFIG.apiBaseUrl.replace(/\/$/,'')+'/api/zavala/state');
-      if(r.ok){
-        const srv=await r.json();
-        if(srv&&srv.servicios!==undefined){D=srv;return;}
+      if(authToken){
+        const r=await fetchApi('/api/zavala/state');
+        if(r && r.ok){
+          const srv=await r.json();
+          if(srv&&srv.servicios!==undefined){
+            srv.usuarios = Array.isArray(srv.usuarios)
+              ? srv.usuarios.map((u) => ({
+                  ...u,
+                  id: Number(u.id),
+                  msgId: u.msgId === null ? null : Number(u.msgId),
+                }))
+              : [];
+            D=srv;
+            return;
+          }
+        }
+      } else {
+        const ru=await fetchApi('/api/zavala/users');
+        if(ru && ru.ok){
+          const users=await ru.json();
+          if(Array.isArray(users) && users.length){
+            D.usuarios = users.map((u) => ({
+              ...u,
+              id: Number(u.id),
+              msgId: u.msgId === null ? null : Number(u.msgId),
+            }));
+            return;
+          }
+        }
       }
-    }catch(e){}
+    }catch(e){console.warn('No se pudo cargar estado remoto:', e);}
   }
   const idb=await dbGet('app').catch(()=>null);
   if(idb&&idb.servicios!==undefined){D=idb;return;}
