@@ -557,6 +557,7 @@ async function createSession(userId) {
   const createdAt = nowISO();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
   await run('INSERT INTO sessions (token, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)', [token, userId, createdAt, expiresAt]);
+  console.log('Created session', { token: token.slice(0, 8) + '...', userId, createdAt, expiresAt });
   return token;
 }
 
@@ -567,7 +568,7 @@ async function findSession(token) {
   if (!session) {
     console.log('Session not found or expired for token:', token ? token.slice(0, 8) + '...' : '(empty)');
   } else {
-    console.log('Session found for token:', token ? token.slice(0, 8) + '...' : '(empty)', 'userId:', session.userId);
+    console.log('Session found for token:', token ? token.slice(0, 8) + '...' : '(empty)', 'session:', session);
   }
   return session;
 }
@@ -575,10 +576,16 @@ async function findSession(token) {
 async function getUserById(userId) {
   if (userId === undefined || userId === null) return null;
   const numericId = Number(userId);
+  console.log('Looking up user by id:', { userId, numericId });
   const user = await get('SELECT * FROM usuarios WHERE id = ?', [numericId]);
-  if (user) return user;
+  if (user) {
+    console.log('Found user in DB:', { id: user.id, username: user.username, user: user.user });
+    return user;
+  }
   const state = await loadState();
-  return (state.usuarios || []).find((u) => Number(u.id) === numericId) || null;
+  const fallback = (state.usuarios || []).find((u) => Number(u.id) === numericId) || null;
+  console.log('Fallback state lookup for user id', numericId, 'found:', !!fallback);
+  return fallback;
 }
 
 function resolveAuthToken(req) {
