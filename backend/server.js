@@ -884,7 +884,8 @@ app.get('/api/zavala/users', async (_req, res) => {
 });
 
 app.post('/api/zavala/login', async (req, res) => {
-  const { user, pass } = req.body;
+  const user = req.body.user ?? req.body.username ?? req.body.usuario;
+  const pass = req.body.pass ?? req.body.password ?? req.body.pin;
   if (!user || !pass) {
     return res.status(400).json({ ok: false, message: 'Usuario o PIN faltante' });
   }
