@@ -776,6 +776,10 @@ async function syncServidor(){
   syncInFlight = true;
   try{
     while(syncPending){
+      if(!authToken){
+        syncPending = false;
+        break;
+      }
       syncPending = false;
       const payload = JSON.stringify(D);
       if(payload===lastSyncedPayload)continue;
@@ -786,11 +790,15 @@ async function syncServidor(){
       if(res && res.ok){
         lastSyncedPayload = payload;
       } else {
-        syncPending = true;
+        if(res && res.status===401){
+          syncPending = false;
+          break;
+        }
+        syncPending = Boolean(authToken);
       }
     }
   }catch(e){
-    syncPending = true;
+    syncPending = Boolean(authToken);
   }
   finally{
     syncInFlight = false;

@@ -839,6 +839,10 @@ async function syncServidor(){
   syncInFlight = true;
   try{
     while(syncPending){
+      if(!authToken){
+        syncPending = false;
+        break;
+      }
       syncPending = false;
       const payload = JSON.stringify(D);
       if(payload===lastSyncedPayload)continue;
@@ -850,12 +854,17 @@ async function syncServidor(){
         lastSyncedPayload = payload;
       } else {
         console.warn('syncServidor failed', res ? res.status : 'no response');
-        syncPending = true;
+        // Stop retry storm when auth is missing/expired.
+        if(res && res.status===401){
+          syncPending = false;
+          break;
+        }
+        syncPending = Boolean(authToken);
       }
     }
   }catch(e){
     console.warn('syncServidor error', e);
-    syncPending = true;
+    syncPending = Boolean(authToken);
   }
   finally{
     syncInFlight = false;
