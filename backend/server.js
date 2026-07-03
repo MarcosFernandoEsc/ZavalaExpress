@@ -582,9 +582,12 @@ async function getUserById(userId) {
 }
 
 function resolveAuthToken(req) {
-  const header = req.headers.authorization;
-  if (header && header.startsWith('Bearer ')) {
-    return header.slice(7);
+  const header = req.headers.authorization || req.headers.Authorization || req.headers['x-access-token'] || req.headers['x-auth-token'];
+  if (typeof header === 'string') {
+    if (header.startsWith('Bearer ')) {
+      return header.slice(7);
+    }
+    return header;
   }
   if (req.query && req.query.token) {
     return String(req.query.token);
@@ -870,7 +873,11 @@ async function saveState(state) {
 }
 
 app.use(sendSecureHeaders);
-app.use(cors());
+app.use(cors({
+  exposedHeaders: ['Authorization', 'X-Access-Token', 'X-Auth-Token'],
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Authorization', 'Content-Type', 'X-Access-Token', 'X-Auth-Token'],
+}));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(join(__dirname, 'public')));

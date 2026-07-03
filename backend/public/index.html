@@ -732,12 +732,20 @@ function sanitizeStateForCache(state){
 
 function buildHeaders(extra={}){
   const headers = {'Content-Type':'application/json', ...extra};
-  if(authToken) headers.Authorization = `Bearer ${authToken}`;
+  if(authToken){
+    headers.Authorization = `Bearer ${authToken}`;
+    headers['X-Access-Token'] = authToken;
+    headers['X-Auth-Token'] = authToken;
+  }
   return headers;
 }
 
 async function fetchApi(path, options={}){
-  const url = APP_CONFIG.apiBaseUrl.replace(/\/$/, '') + path;
+  let url = APP_CONFIG.apiBaseUrl.replace(/\/$/, '') + path;
+  if(authToken && path.startsWith('/api/zavala/')){
+    const separator = url.includes('?') ? '&' : '?';
+    url += `${separator}token=${encodeURIComponent(authToken)}`;
+  }
   const response = await fetch(url, {...options, headers: buildHeaders(options.headers)});
   if(response.status===401){
     saveAuthToken(null);
