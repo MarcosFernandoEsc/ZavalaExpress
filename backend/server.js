@@ -582,15 +582,20 @@ async function getUserById(userId) {
 }
 
 function resolveAuthToken(req) {
-  const header = req.headers.authorization || req.headers.Authorization || req.headers['x-access-token'] || req.headers['x-auth-token'];
+  const header = req.headers.authorization || req.headers['authorization'] || req.headers['x-access-token'] || req.headers['x-auth-token'];
   if (typeof header === 'string') {
-    if (header.startsWith('Bearer ')) {
-      return header.slice(7);
+    const normalized = header.trim();
+    const bearerMatch = normalized.match(/^Bearer\s+(.+)$/i);
+    if (bearerMatch) {
+      return bearerMatch[1];
     }
-    return header;
+    return normalized;
   }
   if (req.query && req.query.token) {
     return String(req.query.token);
+  }
+  if (req.body && typeof req.body.token === 'string') {
+    return req.body.token;
   }
   return null;
 }
@@ -598,7 +603,17 @@ function resolveAuthToken(req) {
 async function requireAuth(req, res, next) {
   const token = resolveAuthToken(req);
   if (!token) {
-    console.log('Unauthorized request: missing Bearer header or token query');
+    console.log('Unauthorized request: missing Bearer header or token query', {
+      method: req.method,
+      path: req.path,
+      query: req.query,
+      bodyToken: req.body?.token,
+      headers: {
+        authorization: req.headers.authorization || req.headers['authorization'],
+        xAccessToken: req.headers['x-access-token'],
+        xAuthToken: req.headers['x-auth-token'],
+      },
+    });
     return res.status(401).json({ ok: false, message: 'No autorizado' });
   }
 
