@@ -873,12 +873,23 @@ let fS='todos', tmpP=[], tmpFoto=null;
    CARGA DE DATOS
 ══════════════════════════════════════════ */
 async function cargarDatos(){
-  if(APP_CONFIG.apiBaseUrl && authToken){
+  if(APP_CONFIG.apiBaseUrl){
     try{
-      const r=await fetchApi('/api/zavala/state');
-      if(r && r.ok){
-        const srv=await r.json();
-        if(srv&&srv.servicios!==undefined){D=srv;return;}
+      if(authToken){
+        const r=await fetchApi('/api/zavala/state');
+        if(r && r.ok){
+          const srv=await r.json();
+          if(srv&&srv.servicios!==undefined){D=srv;return;}
+        }
+      } else {
+        const ru=await fetchApi('/api/zavala/users');
+        if(ru && ru.ok){
+          const users=await ru.json();
+          if(Array.isArray(users) && users.length){
+            D.usuarios = users;
+            return;
+          }
+        }
       }
     }catch(e){console.warn('No se pudo cargar estado remoto:', e);}
   }
@@ -1206,6 +1217,19 @@ async function doLogout(){
   document.getElementById('pin-paso2').style.display='none';
   document.getElementById('li-err').style.display='none';
   actualizarPuntos();
+  if(serverMode){
+    try{
+      const r = await fetchApi('/api/zavala/users');
+      if(r && r.ok){
+        const users = await r.json();
+        if(Array.isArray(users) && users.length){
+          D.usuarios = users;
+        }
+      }
+    }catch(e){
+      console.warn('No se pudo recargar usuarios remotos al cerrar sesión:', e);
+    }
+  }
   document.getElementById('login-screen').classList.remove('hide');
   renderLoginUsuarios();
 }
