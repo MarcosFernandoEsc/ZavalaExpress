@@ -562,12 +562,20 @@ async function createSession(userId) {
 
 async function findSession(token) {
   if (!token) return null;
-  return await get('SELECT * FROM sessions WHERE token = ? AND expiresAt > ?', [token, nowISO()]);
+  await ensureStorage();
+  const session = await get('SELECT * FROM sessions WHERE token = ? AND expiresAt > ?', [token, nowISO()]);
+  if (!session) {
+    console.log('Session not found or expired for token:', token ? token.slice(0, 8) + '...' : '(empty)');
+  } else {
+    console.log('Session found for token:', token ? token.slice(0, 8) + '...' : '(empty)', 'userId:', session.userId);
+  }
+  return session;
 }
 
 async function requireAuth(req, res, next) {
   const authHeader = req.headers.authorization || '';
   if (!authHeader.startsWith('Bearer ')) {
+    console.log('Unauthorized request: missing Bearer header');
     return res.status(401).json({ ok: false, message: 'No autorizado' });
   }
 
@@ -580,13 +588,14 @@ async function requireAuth(req, res, next) {
 
     const user = await get('SELECT * FROM usuarios WHERE id = ?', [session.userId]);
     if (!user) {
+      console.log('Authenticated session user not found:', session.userId);
       return res.status(401).json({ ok: false, message: 'Usuario no encontrado' });
     }
 
     req.user = user;
     next();
   } catch (error) {
-    console.error(error);
+    console.error('Authentication error:', error);
     res.status(500).json({ ok: false, message: 'Error de autenticación' });
   }
 }
@@ -621,13 +630,27 @@ function readJsonState() {
 
 async function migrateJsonState() {
   const stateJson = readJsonState();
-  if (!stateJson) return;
-
   const row = await get('SELECT COUNT(*) AS count FROM usuarios');
-  if (row && row.count > 0) return;
+  const count = Number(row?.count || 0);
+  if (count > 0) return;
 
-  await saveState(stateJson);
+  if (stateJson) {
+    console.log('Migrating JSON state into empty database.');
+    await saveState(stateJson);
+    return;
+  }
+
+  console.log('Database is empty and no JSON state found. Initializing default state.');
+  await saveState(defaultState);
 }
+
+app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.parse.failed' && err.message.includes('JSON')) {
+    console.error('JSON parse error:', err.message);
+    return res.status(400).json({ ok: false, message: 'JSON inválido en la petición' });
+  }
+  next(err);
+});
 
 function writeJsonBackup(state) {
   try {
@@ -825,6 +848,7 @@ async function saveState(state) {
 app.use(sendSecureHeaders);
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
+app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use(express.static(join(__dirname, 'public')));
 
 app.get('/health', (_req, res) => {
