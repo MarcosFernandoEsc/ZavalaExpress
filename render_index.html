@@ -879,28 +879,14 @@ async function cargarDatos(){
         const r=await fetchApi('/api/zavala/state');
         if(r && r.ok){
           const srv=await r.json();
-          if(srv&&srv.servicios!==undefined){
-            srv.usuarios = Array.isArray(srv.usuarios)
-              ? srv.usuarios.map((u) => ({
-                  ...u,
-                  id: Number(u.id),
-                  msgId: u.msgId === null ? null : Number(u.msgId),
-                }))
-              : [];
-            D=srv;
-            return;
-          }
+          if(srv&&srv.servicios!==undefined){D=srv;return;}
         }
       } else {
         const ru=await fetchApi('/api/zavala/users');
         if(ru && ru.ok){
           const users=await ru.json();
           if(Array.isArray(users) && users.length){
-            D.usuarios = users.map((u) => ({
-              ...u,
-              id: Number(u.id),
-              msgId: u.msgId === null ? null : Number(u.msgId),
-            }));
+            D.usuarios = users;
             return;
           }
         }
@@ -1087,7 +1073,7 @@ function renderLoginUsuarios(){
 }
 
 function seleccionarUsuario(id){
-  pinUserSel=D.usuarios.find(u=>u.id==id);
+  pinUserSel=D.usuarios.find(u=>u.id===id);
   if(!pinUserSel)return;
   pinBuffer='';
   document.getElementById('pin-paso1').style.display='none';

@@ -611,7 +611,12 @@ async function requireAuth(req, res, next) {
 }
 
 function sanitizeUsers(users) {
-  return (users || []).map(({ pass, ...user }) => user);
+  return (users || []).map(({ pass, username, user, usuario, msgId, id, ...rest }) => ({
+    ...rest,
+    id: Number(id),
+    user: user || username || usuario || '',
+    msgId: msgId === null ? null : Number(msgId),
+  }));
 }
 
 function sanitizeState(state) {
@@ -683,26 +688,26 @@ async function loadState() {
   const state = {
     ...defaultState,
     usuarios: usuarios.map((row) => ({
-      id: row.id,
+      id: Number(row.id),
       nombre: row.nombre,
       user: row.username,
       pass: row.pass,
       rol: row.rol,
-      msgId: row.msgId === null ? null : row.msgId,
+      msgId: row.msgId === null ? null : Number(row.msgId),
     })),
     mensajeros: mensajeros.map((row) => ({
-      id: row.id,
+      id: Number(row.id),
       nombre: row.nombre,
       tel: row.tel,
       zona: row.zona,
     })),
     servicios: serviciosRows.map((row) => ({
-      id: row.id,
+      id: Number(row.id),
       folio: row.folio,
-      msgId: row.msgId === null ? null : row.msgId,
+      msgId: row.msgId === null ? null : Number(row.msgId),
       fecha: row.fecha,
       hora: row.hora,
-      monto: row.monto,
+      monto: row.monto === null ? 0 : Number(row.monto),
       estatus: row.estatus,
       obs: row.obs,
       foto: row.foto,
@@ -713,7 +718,7 @@ async function loadState() {
       finalizadoReporte: row.finalizadoReporte,
       finalizadoResultado: row.finalizadoResultado,
       fotoFinal: row.fotoFinal,
-      fotoFinalReemplazos: row.fotoFinalReemplazos,
+      fotoFinalReemplazos: row.fotoFinalReemplazos === null ? 0 : Number(row.fotoFinalReemplazos),
       eliminadoPor: row.eliminadoPor,
       eliminadoEn: row.eliminadoEn,
       editadoPor: row.editadoPor,
@@ -729,9 +734,9 @@ async function loadState() {
       fecha: row.fecha,
       hora: row.hora,
       personas: row.personas ? JSON.parse(row.personas) : [],
-      monto: row.monto,
+      monto: row.monto === null ? 0 : Number(row.monto),
       obs: row.obs,
-      srvId: row.srvId,
+      srvId: row.srvId === null ? null : Number(row.srvId),
     })),
     reportesRecibidos: reportesRows.map((row) => {
       try {
