@@ -610,17 +610,20 @@ function resolveAuthToken(req) {
 async function requireAuth(req, res, next) {
   const token = resolveAuthToken(req);
   if (!token) {
-    console.log('Unauthorized request: missing Bearer header or token query', {
-      method: req.method,
-      path: req.path,
-      query: req.query,
-      bodyToken: req.body?.token,
-      headers: {
-        authorization: req.headers.authorization || req.headers['authorization'],
-        xAccessToken: req.headers['x-access-token'],
-        xAuthToken: req.headers['x-auth-token'],
-      },
-    });
+    const isExpectedPublicProbe = req.method === 'GET' && req.path === '/api/zavala/state';
+    if (!isExpectedPublicProbe) {
+      console.log('Unauthorized request: missing Bearer header or token query', {
+        method: req.method,
+        path: req.path,
+        query: req.query,
+        bodyToken: req.body?.token,
+        headers: {
+          authorization: req.headers.authorization || req.headers['authorization'],
+          xAccessToken: req.headers['x-access-token'],
+          xAuthToken: req.headers['x-auth-token'],
+        },
+      });
+    }
     return res.status(401).json({ ok: false, message: 'No autorizado' });
   }
 

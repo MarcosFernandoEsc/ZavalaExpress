@@ -715,9 +715,10 @@ let serverMode=Boolean(APP_CONFIG.apiBaseUrl);
 let db=null;
 
 function saveAuthToken(token){
-  authToken=token;
-  if(token){
-    localStorage.setItem(AUTH_TOKEN_KEY, token);
+  const normalized = typeof token === 'string' ? token.trim() : token;
+  authToken = normalized || null;
+  if(authToken){
+    localStorage.setItem(AUTH_TOKEN_KEY, authToken);
   } else {
     localStorage.removeItem(AUTH_TOKEN_KEY);
   }
@@ -742,7 +743,7 @@ function buildHeaders(extra={}){
 
 async function fetchApi(path, options={}){
   let url = APP_CONFIG.apiBaseUrl.replace(/\/$/, '') + path;
-  if(authToken && path.startsWith('/api/')){
+  if(authToken && String(authToken).trim() && path.startsWith('/api/')){
     const separator = url.includes('?') ? '&' : '?';
     url += `${separator}token=${encodeURIComponent(authToken)}`;
   }
