@@ -454,6 +454,21 @@ async function getTokensByMsgId(msgId) {
   return rows.map((r) => r.token).filter(Boolean);
 }
 
+async function getTokensByUserIds(userIds) {
+  const ids = (userIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id));
+  if (!ids.length) return [];
+  const placeholders = ids.map(() => '?').join(',');
+  const rows = await all(`SELECT token FROM device_tokens WHERE userId IN (${placeholders})`, ids);
+  return [...new Set(rows.map((r) => r.token).filter(Boolean))];
+}
+
+async function getAdminUserIds(state) {
+  return (state.usuarios || [])
+    .filter((u) => u && u.rol === 'admin')
+    .map((u) => Number(u.id))
+    .filter((id) => Number.isFinite(id));
+}
+
 async function sendPushToMsgId(msgId, title, body, data = {}) {
   if (!firebaseMessaging || !msgId) return;
   const tokens = await getTokensByMsgId(msgId);
@@ -483,9 +498,39 @@ async function sendPushToMsgId(msgId, title, body, data = {}) {
   }
 }
 
+async function sendPushToUserIds(userIds, title, body, data = {}) {
+  if (!firebaseMessaging) return;
+  const tokens = await getTokensByUserIds(userIds);
+  if (!tokens.length) return;
+
+  const response = await firebaseMessaging.sendEachForMulticast({
+    tokens,
+    notification: { title, body },
+    data: Object.fromEntries(Object.entries(data).map(([k, v]) => [k, String(v)])),
+    android: {
+      priority: 'high',
+      notification: {
+        channelId: 'zavala-default',
+      },
+    },
+  });
+
+  if (response.failureCount > 0) {
+    response.responses.forEach(async (r, i) => {
+      if (!r.success) {
+        const code = r.error?.code || '';
+        if (code.includes('registration-token-not-registered') || code.includes('invalid-registration-token')) {
+          await removeDeviceToken(tokens[i]);
+        }
+      }
+    });
+  }
+}
+
 async function notifyStateTransitions(currentState, nextState) {
   if (!firebaseMessaging) return;
   const currentById = new Map((currentState.servicios || []).map((s) => [s.id, s]));
+  const adminUserIds = await getAdminUserIds(nextState);
 
   for (const service of nextState.servicios || []) {
     if (!service || service.eliminadoPor) continue;
@@ -502,6 +547,21 @@ async function notifyStateTransitions(currentState, nextState) {
           'Nuevo servicio asignado',
           `${service.folio || 'Servicio'} para ${service.fecha || 'hoy'} ${service.hora || ''}`.trim(),
           { type: 'assigned', serviceId: service.id, folio: service.folio || '' }
+        );
+      }
+    }
+
+    const wasFinalized = Boolean(prev?.finalizadoPor);
+    const isFinalized = Boolean(service.finalizadoPor);
+    if (!wasFinalized && isFinalized && adminUserIds.length) {
+      const eventKey = `srv:${service.id}:finalized:${service.finalizadoEn || service.editadoEn || nowISO()}`;
+      const shouldSend = await recordPushEvent(eventKey);
+      if (shouldSend) {
+        await sendPushToUserIds(
+          adminUserIds,
+          'Servicio finalizado',
+          `${service.folio || 'Servicio'} fue finalizado por ${service.finalizadoPor || 'mensajero'}`,
+          { type: 'finalized', serviceId: service.id, folio: service.folio || '' }
         );
       }
     }

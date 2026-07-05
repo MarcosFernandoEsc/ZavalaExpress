@@ -781,7 +781,7 @@ let pushRegistrationReady = false;
 
 async function iniciarPushNativo(){
   if(pushRegistrationReady) return;
-  if(!sesion || sesion.rol!=='mensajero' || !serverMode || !authToken) return;
+  if(!sesion || !serverMode || !authToken) return;
 
   const PushNotifications = getPushPlugin();
   if(!PushNotifications) return;
