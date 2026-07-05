@@ -1,0 +1,2238 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no"/>
+<meta name="apple-mobile-web-app-capable" content="yes"/>
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+<meta name="apple-mobile-web-app-title" content="ZavalaExpress"/>
+<meta name="mobile-web-app-capable" content="yes"/>
+<meta name="theme-color" content="#0D1B3E"/>
+<link rel="manifest" href="/manifest.json" />
+<link rel="icon" href="/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/icon.svg" />
+<title>ZAVALAEXPRESS</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.min.css"/>
+<script>
+window.__ZAVALA_CONFIG__ = {
+  apiBaseUrl: ''
+};
+</script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+:root{
+  --c1:#0D1B3E;--c2:#1A3A6B;--c3:#2558A8;--c4:#E8F0FC;
+  --acc:#C8A94A;--bg:#F2F4F8;--card:#FFF;
+  --txt:#0D1B3E;--sub:#5A6A8A;--brd:rgba(13,27,62,0.1);
+  --ok:#1B6B3A;--okbg:#EAF5EF;
+  --warn:#7A4E0D;--warnbg:#FEF3E2;
+  --red:#8B1A1A;--redbg:#FDEAEA;
+  --del:#6B0000;--delbg:#FDF0F0;
+  --safe-top:env(safe-area-inset-top,0px);
+  --safe-bot:env(safe-area-inset-bottom,0px);
+}
+html,body{height:100%;background:var(--c1);}
+body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);font-size:14px;overflow:hidden;}
+
+/* ── APP ── */
+#app{display:flex;flex-direction:column;height:100vh;height:100dvh;background:var(--bg);max-width:480px;margin:0 auto;position:relative;overflow:hidden;}
+
+@media (min-width: 960px){
+  body{background:linear-gradient(180deg,#0D1B3E 0%,#10244F 100%);overflow:auto;}
+  #app{max-width:1440px;min-height:100vh;height:auto;display:grid;grid-template-columns:260px 1fr;grid-template-rows:auto 1fr;box-shadow:0 18px 60px rgba(0,0,0,.22);}
+  .topbar{grid-column:1 / -1;grid-row:1;}
+  #bottom-nav{grid-column:1;grid-row:2;display:flex;flex-direction:column;justify-content:flex-start;align-items:stretch;padding:16px 14px;gap:8px;border-top:none;border-right:.5px solid var(--brd);padding-bottom:16px;background:var(--card);}
+  #bottom-nav .bn{flex:none;flex-direction:row;justify-content:flex-start;gap:10px;padding:14px 16px;min-height:auto;border-radius:12px;}
+  #bottom-nav .bn .bn-bar{display:none;}
+  #bottom-nav .bn span{font-size:13px;}
+  #bottom-nav .bn i{font-size:20px;}
+  .scr{grid-column:2;grid-row:2;min-height:0;}
+  .pull-up{padding:18px 18px 0;}
+  .sec-hdr{padding:18px 20px 22px;}
+  .card{border-radius:16px;}
+  .modal-sheet{max-width:760px;}
+  .stat-grid{grid-template-columns:repeat(4,1fr);}
+}
+
+/* ── LOGIN ── */
+#login-screen{position:absolute;inset:0;z-index:500;background:linear-gradient(160deg,var(--c1) 0%,var(--c2) 100%);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:32px 28px;gap:0;}
+#login-screen.hide{display:none;}
+.ls-logo{width:64px;height:64px;background:var(--acc);border-radius:16px;display:flex;align-items:center;justify-content:center;margin-bottom:14px;}
+.ls-logo i{font-size:34px;color:var(--c1);}
+.ls-brand{font-size:24px;font-weight:900;color:#fff;letter-spacing:.3px;margin-bottom:4px;}
+.ls-brand span{color:var(--acc);}
+.ls-sub{font-size:11px;color:rgba(255,255,255,.4);letter-spacing:2px;text-transform:uppercase;margin-bottom:36px;}
+.ls-card{background:#fff;border-radius:18px;padding:24px;width:100%;max-width:340px;}
+.ls-card h2{font-size:16px;font-weight:700;color:var(--c1);margin-bottom:18px;text-align:center;}
+.lf{display:flex;flex-direction:column;gap:5px;margin-bottom:14px;}
+.lf label{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;}
+.lf input{padding:12px 14px;border:1.5px solid var(--brd);border-radius:10px;font-size:14px;color:var(--txt);font-family:inherit;outline:none;}
+.lf input:focus{border-color:var(--c3);}
+.btn-login{width:100%;padding:13px;background:var(--c1);color:#fff;border:none;border-radius:10px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;margin-top:6px;}
+.btn-login:active{background:var(--c2);}
+.ls-err{color:#c0392b;font-size:12px;font-weight:600;text-align:center;margin-top:8px;display:none;}
+
+/* ── TOPBAR ── */
+.topbar{background:var(--c1);padding:calc(var(--safe-top) + 10px) 16px 10px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;z-index:10;}
+.tb-brand{display:flex;align-items:center;gap:9px;}
+.tb-logo{width:30px;height:30px;background:var(--acc);border-radius:7px;display:flex;align-items:center;justify-content:center;}
+.tb-logo i{font-size:17px;color:var(--c1);}
+.tb-name{font-size:15px;font-weight:800;color:#fff;}
+.tb-name span{color:var(--acc);}
+.tb-right{display:flex;align-items:center;gap:8px;}
+.tb-user{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border-radius:20px;padding:5px 12px 5px 6px;}
+.tb-av{width:24px;height:24px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--c1);}
+.tb-uname{font-size:12px;color:rgba(255,255,255,.85);font-weight:600;}
+.tb-logout{background:rgba(255,255,255,.12);border:none;color:rgba(255,255,255,.7);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-family:inherit;display:flex;align-items:center;gap:4px;}
+.tb-logout:active{background:rgba(255,0,0,.2);}
+.tb-rol{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;}
+.rol-admin{background:var(--acc);color:var(--c1);}
+.rol-msg{background:rgba(255,255,255,.15);color:#fff;}
+
+/* ── SCREENS ── */
+.scr{display:none;flex-direction:column;flex:1;overflow:hidden;}
+.scr.act{display:flex;}
+.pull-up{margin-top:-8px;border-radius:14px 14px 0 0;background:var(--bg);padding:14px 14px 0;flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.pull-up::-webkit-scrollbar{display:none;}
+
+/* ── SECTION HEADER ── */
+.sec-hdr{background:var(--c2);padding:14px 16px 20px;flex-shrink:0;}
+.sh-row{display:flex;justify-content:space-between;align-items:center;}
+.sh-title{font-size:17px;font-weight:700;color:#fff;margin-bottom:2px;}
+.sh-sub{font-size:11px;color:rgba(255,255,255,.45);}
+.sh-btn{background:var(--acc);border:none;color:var(--c1);padding:9px 16px;border-radius:9px;font-size:13px;font-weight:700;cursor:pointer;display:flex;align-items:center;gap:6px;font-family:inherit;}
+.sh-btn:active{opacity:.8;}
+
+/* ── STATS ── */
+.stat-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;}
+.stat-card{background:var(--card);border-radius:12px;border:.5px solid var(--brd);padding:14px;}
+.sc-num{font-size:26px;font-weight:700;color:var(--txt);}
+.sc-lbl{font-size:11px;color:var(--sub);margin-top:3px;}
+.sc-icon{float:right;margin-top:-2px;}
+.sc-icon i{font-size:21px;color:var(--c3);}
+
+/* ── CARD ── */
+.card{background:var(--card);border-radius:12px;border:.5px solid var(--brd);padding:14px;margin-bottom:12px;}
+.card-hdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;}
+.card-ttl{font-size:13px;font-weight:700;color:var(--txt);display:flex;align-items:center;gap:7px;}
+.card-ttl i{color:var(--c3);font-size:15px;}
+
+/* ── SERVICIO ITEM ── */
+.srv-item{padding:12px 0;border-bottom:.5px solid var(--brd);cursor:pointer;}
+.srv-item:last-child{border-bottom:none;}
+.srv-item.eliminado{opacity:.65;background:var(--delbg);margin:0 -6px;padding:10px 6px;border-radius:8px;border:1px dashed var(--red);margin-bottom:6px;}
+.si-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:5px;}
+.si-folio{font-size:11px;font-weight:700;color:var(--c3);letter-spacing:.3px;}
+.si-folio.del{color:var(--red);text-decoration:line-through;}
+.si-fecha{font-size:11px;color:var(--sub);}
+.si-msg{font-size:14px;font-weight:700;color:var(--txt);margin-bottom:4px;display:flex;align-items:center;gap:6px;}
+.si-msg i{font-size:13px;color:var(--c3);}
+.si-pers{font-size:12px;color:var(--sub);margin-bottom:6px;}
+.si-bot{display:flex;align-items:center;justify-content:space-between;}
+.si-monto{font-size:16px;font-weight:700;color:var(--ok);}
+.del-banner{background:var(--redbg);border:1px solid rgba(139,26,26,.3);border-radius:7px;padding:6px 10px;font-size:11px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:5px;margin-top:6px;}
+
+/* ── BADGES ── */
+.badge{display:inline-block;padding:3px 10px;border-radius:20px;font-size:11px;font-weight:700;}
+.b-ok{background:var(--okbg);color:var(--ok);}
+.b-ruta{background:#E6F0FC;color:#0C447C;}
+.b-pend{background:var(--warnbg);color:var(--warn);}
+.b-del{background:var(--redbg);color:var(--red);}
+.b-prog{background:#EEF2FF;color:#3552B6;}
+.b-fin{background:#EAF5EF;color:var(--ok);}
+
+/* ── MENSAJERO ITEM ── */
+.msg-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:.5px solid var(--brd);cursor:pointer;}
+.msg-item:last-child{border-bottom:none;}
+.msg-av{width:44px;height:44px;border-radius:12px;background:var(--c4);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:700;color:var(--c2);flex-shrink:0;}
+.msg-info{flex:1;min-width:0;}
+.msg-name{font-size:14px;font-weight:700;color:var(--txt);}
+.msg-sub{font-size:11px;color:var(--sub);margin-top:2px;}
+.msg-right{text-align:right;flex-shrink:0;}
+.msg-num{font-size:16px;font-weight:700;color:var(--txt);}
+.msg-slbl{font-size:10px;color:var(--sub);margin-top:1px;}
+
+/* ── USUARIO ITEM ── */
+.usr-item{display:flex;align-items:center;gap:12px;padding:12px 0;border-bottom:.5px solid var(--brd);}
+.usr-item:last-child{border-bottom:none;}
+.usr-av{width:40px;height:40px;border-radius:10px;background:var(--c4);display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:700;color:var(--c2);flex-shrink:0;}
+.usr-info{flex:1;min-width:0;}
+.usr-name{font-size:14px;font-weight:700;color:var(--txt);}
+.usr-sub{font-size:11px;color:var(--sub);margin-top:2px;}
+
+/* ── BOTTOM NAV ── */
+.bnav{background:var(--card);border-top:.5px solid var(--brd);display:flex;flex-shrink:0;padding-bottom:var(--safe-bot);}
+.bn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:9px 4px 8px;cursor:pointer;gap:3px;border:none;background:none;font-family:inherit;color:var(--sub);transition:color .15s;min-height:54px;}
+.bn.act{color:var(--c3);}
+.bn i{font-size:22px;}
+.bn span{font-size:10px;font-weight:600;}
+.bn-bar{height:3px;width:22px;border-radius:2px;background:transparent;margin-top:1px;}
+.bn.act .bn-bar{background:var(--c3);}
+.bn-badge{position:relative;}
+.bn-dot{position:absolute;top:-2px;right:-4px;width:8px;height:8px;background:#e74c3c;border-radius:50%;display:none;}
+.bn-dot.show{display:block;}
+
+/* ── FORMS ── */
+.fg{display:flex;flex-direction:column;gap:5px;margin-bottom:12px;}
+.fg label{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;}
+.fg input,.fg select,.fg textarea{padding:11px 13px;border:1.5px solid var(--brd);border-radius:10px;font-size:14px;color:var(--txt);background:var(--card);font-family:inherit;outline:none;-webkit-appearance:none;}
+.fg input:focus,.fg select:focus,.fg textarea:focus{border-color:var(--c3);}
+.fg textarea{resize:vertical;min-height:56px;}
+.frow{display:grid;grid-template-columns:1fr 1fr;gap:12px;}
+.btn-prim{width:100%;padding:13px;background:var(--c1);color:#fff;border:none;border-radius:12px;font-size:15px;font-weight:700;cursor:pointer;font-family:inherit;display:flex;align-items:center;justify-content:center;gap:8px;min-height:48px;}
+.btn-prim:active{background:var(--c2);}
+.btn-acc{background:var(--acc);color:var(--c1);}
+.btn-sm{padding:7px 13px;border-radius:9px;font-size:12px;font-weight:700;cursor:pointer;border:none;font-family:inherit;display:inline-flex;align-items:center;gap:5px;min-height:34px;}
+.btn-ghost{background:var(--c4);color:var(--c2);border:.5px solid var(--brd);}
+.btn-ok{background:var(--okbg);color:var(--ok);border:.5px solid rgba(27,107,58,.2);}
+.btn-del{background:var(--redbg);color:var(--red);border:.5px solid rgba(139,26,26,.2);}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(10,20,50,.65);z-index:100;align-items:flex-end;justify-content:center;}
+.modal-bg.open{display:flex;}
+.modal-sheet{background:var(--card);border-radius:20px 20px 0 0;width:100%;max-width:480px;padding-bottom:calc(var(--safe-bot)+16px);max-height:92vh;max-height:92dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;}
+.modal-sheet::-webkit-scrollbar{display:none;}
+.m-handle{width:40px;height:4px;background:var(--brd);border-radius:4px;margin:12px auto 14px;}
+.m-hdr{padding:0 16px 14px;border-bottom:.5px solid var(--brd);display:flex;justify-content:space-between;align-items:center;}
+.m-hdr h2{font-size:16px;font-weight:700;color:var(--txt);}
+.m-close{background:none;border:none;font-size:26px;cursor:pointer;color:var(--sub);padding:2px 6px;line-height:1;min-width:36px;min-height:36px;display:flex;align-items:center;justify-content:center;}
+.m-body{padding:16px;}
+.m-sec{font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin:14px 0 8px;padding-bottom:5px;border-bottom:.5px solid var(--brd);}
+
+/* ── FOTO ── */
+.foto-zone{border:2px dashed rgba(13,27,62,.18);border-radius:12px;padding:20px 16px;text-align:center;cursor:pointer;background:var(--c4);}
+.foto-zone i{font-size:32px;color:var(--c3);display:block;margin-bottom:8px;}
+.foto-zone span{font-size:13px;color:var(--sub);}
+.foto-preview{border-radius:12px;overflow:hidden;border:1px solid var(--brd);}
+.foto-preview img{width:100%;max-height:220px;object-fit:cover;display:block;}
+.rv-foto{border-radius:10px;overflow:hidden;border:1px solid var(--brd);margin-top:10px;cursor:pointer;}
+.rv-foto img{width:100%;max-height:200px;object-fit:cover;display:block;}
+
+/* ── SEARCH & FILTERS ── */
+.srch{position:relative;margin-bottom:12px;}
+.srch i{position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--sub);font-size:16px;pointer-events:none;}
+.srch input{padding-left:36px;border-radius:10px;width:100%;}
+.ftabs{display:flex;gap:7px;margin-bottom:12px;overflow-x:auto;padding-bottom:2px;}
+.ftabs::-webkit-scrollbar{display:none;}
+.ftab{padding:6px 14px;border-radius:20px;font-size:12px;font-weight:700;cursor:pointer;border:1.5px solid var(--brd);background:var(--card);color:var(--sub);white-space:nowrap;flex-shrink:0;min-height:34px;}
+.ftab.on{background:var(--c1);color:#fff;border-color:var(--c1);}
+
+/* ── REPORT ── */
+.rpt-hdr{background:var(--c1);border-radius:12px;padding:16px;margin-bottom:12px;}
+.rpt-srv{background:var(--card);border-radius:12px;border:.5px solid var(--brd);padding:14px;margin-bottom:12px;}
+.rv-top{display:flex;justify-content:space-between;align-items:flex-start;padding-bottom:10px;border-bottom:.5px solid var(--brd);margin-bottom:10px;}
+.rv-folio{font-size:12px;font-weight:700;color:var(--c3);}
+.rv-personas{background:var(--c4);border-radius:9px;padding:10px 12px;margin:8px 0;}
+.rv-persona{font-size:12px;color:var(--c2);padding:3px 0;display:flex;align-items:center;gap:6px;font-weight:500;}
+.rv-monto{background:var(--okbg);border-radius:9px;padding:11px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;}
+.rv-monto-lbl{font-size:12px;font-weight:700;color:var(--ok);display:flex;align-items:center;gap:5px;}
+.rv-monto-val{font-size:20px;font-weight:700;color:var(--ok);}
+
+/* ── FINALIZACION ── */
+.finish-box{background:#F3F6FF;border-radius:12px;padding:14px;border:1px solid rgba(53,82,182,.16);margin-top:12px;}
+.finish-box h3{font-size:13px;font-weight:800;color:var(--c1);margin-bottom:8px;}
+.finish-meta{font-size:12px;color:var(--sub);line-height:1.45;}
+.finish-actions{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px;}
+
+/* ── DETALLE ── */
+.dr{display:flex;justify-content:space-between;align-items:baseline;padding:6px 0;font-size:13px;}
+.dk{color:var(--sub);}
+.dv{font-weight:700;color:var(--txt);text-align:right;max-width:62%;}
+.sep{height:.5px;background:var(--brd);margin:10px 0;}
+
+/* ── PERSONA CHIP ── */
+.p-chip{display:flex;align-items:center;justify-content:space-between;background:var(--c4);border-radius:8px;padding:8px 12px;font-size:13px;color:var(--c2);font-weight:600;}
+.p-chip-del{background:none;border:none;cursor:pointer;color:var(--sub);font-size:20px;line-height:1;padding:0 4px;min-width:28px;min-height:28px;display:flex;align-items:center;justify-content:center;}
+
+/* ── AUDITORÍA ── */
+.audit-item{padding:12px;border-radius:10px;background:var(--delbg);border:1px dashed rgba(139,26,26,.3);margin-bottom:10px;}
+.audit-banner{font-size:11px;font-weight:700;color:var(--red);display:flex;align-items:center;gap:6px;margin-bottom:8px;}
+.audit-info{font-size:12px;color:var(--txt);}
+.audit-info span{color:var(--sub);}
+
+/* ── TOAST ── */
+.toast{position:fixed;bottom:calc(var(--safe-bot)+72px);left:50%;transform:translateX(-50%);background:var(--c1);color:#fff;padding:10px 20px;border-radius:24px;font-size:13px;font-weight:700;display:none;white-space:nowrap;z-index:300;border:1px solid rgba(200,169,74,.4);}
+
+/* ── EMPTY ── */
+.empty{text-align:center;padding:40px 16px;color:var(--sub);}
+.empty i{font-size:44px;display:block;margin-bottom:10px;color:#C0C8D8;}
+.empty p{font-size:13px;}
+
+/* ── INFO BOX ── */
+.info-box{background:var(--warnbg);border-radius:10px;padding:12px 14px;font-size:12px;color:var(--warn);display:flex;align-items:flex-start;gap:8px;margin-bottom:12px;}
+.info-box i{font-size:18px;flex-shrink:0;margin-top:1px;}
+
+/* ── PIN PAD ── */
+.pin-dot{width:14px;height:14px;border-radius:50%;border:2px solid var(--brd);background:transparent;transition:background .15s;}
+.pin-dot.fill{background:var(--c1);border-color:var(--c1);}
+.pin-dot.err{background:#e74c3c;border-color:#e74c3c;}
+.pin-pad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;}
+.pp-btn{padding:14px 10px;border:1.5px solid var(--brd);border-radius:12px;font-size:20px;font-weight:700;color:var(--c1);background:var(--card);cursor:pointer;font-family:inherit;transition:background .1s;}
+.pp-btn:active{background:var(--c4);}
+.pp-back{background:var(--c4);font-size:16px;color:var(--c2);}
+.pp-del{background:var(--redbg);font-size:16px;color:var(--red);}
+.pin-usr-btn{display:flex;align-items:center;gap:10px;padding:10px 12px;border:1.5px solid var(--brd);border-radius:12px;background:#fff;cursor:pointer;font-family:inherit;width:100%;text-align:left;}
+.pin-usr-btn:active{background:var(--c4);}
+.pin-usr-av{width:36px;height:36px;border-radius:9px;background:var(--c4);display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--c2);flex-shrink:0;}
+.pin-usr-name{font-size:14px;font-weight:700;color:var(--c1);}
+.pin-usr-rol{font-size:11px;color:var(--sub);}
+.pin-usr-arrow{margin-left:auto;font-size:16px;color:var(--sub);}
+
+/* ── MODAL EDITAR ── */
+
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ════════════════ LOGIN PIN ════════════════ -->
+<div id="login-screen">
+  <div class="ls-logo"><i class="ti ti-send" aria-hidden="true"></i></div>
+  <div class="ls-brand">ZAVALA<span>EXPRESS</span></div>
+  <div class="ls-sub">Sistema de Mensajería</div>
+  <div class="ls-card">
+    <!-- Paso 1: elegir usuario -->
+    <div id="pin-paso1">
+      <h2 style="margin-bottom:14px;">¿Quién eres?</h2>
+      <div id="pin-usuarios-list" style="display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;"></div>
+    </div>
+    <!-- Paso 2: ingresar PIN -->
+    <div id="pin-paso2" style="display:none;text-align:center;">
+      <div id="pin-avatar" style="width:52px;height:52px;border-radius:14px;background:var(--c4);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--c2);margin:0 auto 8px;"></div>
+      <div id="pin-nombre-lbl" style="font-size:15px;font-weight:700;color:var(--c1);margin-bottom:4px;"></div>
+      <div style="font-size:11px;color:var(--sub);margin-bottom:18px;">Ingresa tu PIN de 4 dígitos</div>
+      <!-- Puntos indicadores -->
+      <div style="display:flex;justify-content:center;gap:12px;margin-bottom:20px;">
+        <div class="pin-dot" id="pd0"></div>
+        <div class="pin-dot" id="pd1"></div>
+        <div class="pin-dot" id="pd2"></div>
+        <div class="pin-dot" id="pd3"></div>
+      </div>
+      <!-- Teclado numérico -->
+      <div class="pin-pad">
+        <button class="pp-btn" onclick="pinTecla('1')">1</button>
+        <button class="pp-btn" onclick="pinTecla('2')">2</button>
+        <button class="pp-btn" onclick="pinTecla('3')">3</button>
+        <button class="pp-btn" onclick="pinTecla('4')">4</button>
+        <button class="pp-btn" onclick="pinTecla('5')">5</button>
+        <button class="pp-btn" onclick="pinTecla('6')">6</button>
+        <button class="pp-btn" onclick="pinTecla('7')">7</button>
+        <button class="pp-btn" onclick="pinTecla('8')">8</button>
+        <button class="pp-btn" onclick="pinTecla('9')">9</button>
+        <button class="pp-btn pp-back" onclick="pinVolver()"><i class="ti ti-arrow-left" aria-hidden="true"></i></button>
+        <button class="pp-btn" onclick="pinTecla('0')">0</button>
+        <button class="pp-btn pp-del" onclick="pinBorrar()"><i class="ti ti-backspace" aria-hidden="true"></i></button>
+      </div>
+      <div class="ls-err" id="li-err" style="margin-top:10px;">PIN incorrecto</div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ TOPBAR ════════════════ -->
+<div class="topbar">
+  <div class="tb-brand">
+    <div class="tb-logo"><i class="ti ti-send" aria-hidden="true"></i></div>
+    <div class="tb-name">ZAVALA<span>EXPRESS</span></div>
+  </div>
+  <div class="tb-right">
+    <span class="tb-rol" id="tb-rol-badge">Admin</span>
+    <div class="tb-user">
+      <div class="tb-av" id="tb-av">A</div>
+      <span class="tb-uname" id="tb-uname">Admin</span>
+    </div>
+    <button class="tb-logout" onclick="doLogout()"><i class="ti ti-logout" aria-hidden="true"></i></button>
+  </div>
+</div>
+
+<!-- ════════════════ INICIO ════════════════ -->
+<div class="scr act" id="s-inicio">
+  <div class="sec-hdr">
+    <div class="sh-row">
+      <div><div class="sh-title" id="ini-sal">Bienvenido</div><div class="sh-sub" id="ini-fecha"></div></div>
+      <button class="sh-btn" onclick="abrirServicio()" id="btn-nuevo-srv"><i class="ti ti-plus" aria-hidden="true"></i> Nuevo servicio</button>
+    </div>
+  </div>
+  <div class="pull-up">
+    <div class="stat-grid">
+      <div class="stat-card"><div class="sc-icon"><i class="ti ti-car" aria-hidden="true"></i></div><div class="sc-num" id="st-srv">0</div><div class="sc-lbl">Servicios hoy</div></div>
+      <div class="stat-card"><div class="sc-icon"><i class="ti ti-user-circle" aria-hidden="true"></i></div><div class="sc-num" id="st-msg">0</div><div class="sc-lbl">Mensajeros activos</div></div>
+      <div class="stat-card"><div class="sc-icon"><i class="ti ti-users" aria-hidden="true"></i></div><div class="sc-num" id="st-vis">0</div><div class="sc-lbl">Visitas hoy</div></div>
+      <div class="stat-card"><div class="sc-icon" style="color:var(--ok);"><i class="ti ti-cash" aria-hidden="true"></i></div><div class="sc-num" id="st-ing" style="color:var(--ok);">$0</div><div class="sc-lbl">Ingresos hoy</div></div>
+    </div>
+    <div id="recordatorio-panel" class="card" style="display:none;"></div>
+    <div class="card">
+      <div class="card-hdr"><div class="card-ttl"><i class="ti ti-car" aria-hidden="true"></i> Servicios recientes</div></div>
+      <div id="ini-lista"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════ SERVICIOS ════════════════ -->
+<div class="scr" id="s-servicios">
+  <div class="sec-hdr">
+    <div class="sh-row">
+      <div><div class="sh-title">Servicios</div><div class="sh-sub" id="srv-hdr-sub"></div></div>
+      <button class="sh-btn" onclick="abrirServicio()"><i class="ti ti-plus" aria-hidden="true"></i> Nuevo</button>
+    </div>
+  </div>
+  <div class="pull-up">
+    <div class="srch"><i class="ti ti-search" aria-hidden="true"></i><input type="text" id="srv-search" placeholder="Buscar folio, mensajero, persona..." oninput="renderServicios()" /></div>
+    <div class="ftabs">
+      <div class="ftab on" onclick="setFS('todos',this)">Todos</div>
+      <div class="ftab" onclick="setFS('programados',this)">Programados</div>
+      <div class="ftab" onclick="setFS('en-curso',this)">En curso</div>
+      <div class="ftab" onclick="setFS('finalizados',this)">Finalizados</div>
+      <div class="ftab" id="ftab-eliminados" onclick="setFS('eliminados',this)" style="display:none;">🗑 Eliminados</div>
+    </div>
+    <div class="card" style="padding:8px 14px;"><div id="srv-lista"></div></div>
+  </div>
+</div>
+
+<!-- ════════════════ MENSAJEROS ════════════════ -->
+<div class="scr" id="s-msg">
+  <div class="sec-hdr">
+    <div class="sh-row">
+      <div><div class="sh-title">Mensajeros</div><div class="sh-sub" id="msg-hdr-sub"></div></div>
+      <button class="sh-btn" id="btn-add-msg" onclick="abrirModal('m-addmsg')"><i class="ti ti-plus" aria-hidden="true"></i> Agregar</button>
+    </div>
+  </div>
+  <div class="pull-up">
+    <div class="card" style="padding:8px 14px;"><div id="msg-lista"></div></div>
+  </div>
+</div>
+
+<!-- ════════════════ REPORTES ════════════════ -->
+<div class="scr" id="s-rpt">
+  <div class="sec-hdr">
+    <div class="sh-row">
+      <div><div class="sh-title">Reportes</div><div class="sh-sub" id="rpt-sub">Servicios por mensajero</div></div>
+      <div style="display:flex;gap:8px;">
+        <button class="sh-btn" style="background:rgba(255,255,255,.15);color:#fff;" onclick="exportarReporte()"><i class="ti ti-download" aria-hidden="true"></i> Exportar</button>
+        <button class="sh-btn" onclick="window.print()"><i class="ti ti-printer" aria-hidden="true"></i> Imprimir</button>
+      </div>
+    </div>
+  </div>
+  <div class="pull-up">
+    <div class="card">
+      <div class="fg"><label>Mensajero</label><select id="rpt-msg" onchange="renderReporte()"><option value="">— Seleccionar mensajero —</option></select></div>
+      <div class="frow">
+        <div class="fg"><label>Desde</label><input type="date" id="rpt-desde" onchange="renderReporte()" /></div>
+        <div class="fg"><label>Hasta</label><input type="date" id="rpt-hasta" onchange="renderReporte()" /></div>
+      </div>
+    </div>
+    <div id="rpt-cuerpo"></div>
+  </div>
+</div>
+
+<!-- ════════════════ USUARIOS (solo admin) ════════════════ -->
+<div class="scr" id="s-usuarios">
+  <div class="sec-hdr">
+    <div class="sh-row">
+      <div><div class="sh-title">Usuarios</div><div class="sh-sub" id="usr-hdr-sub">Gestión de accesos</div></div>
+      <button class="sh-btn" onclick="abrirModal('m-addusr')"><i class="ti ti-plus" aria-hidden="true"></i> Crear</button>
+    </div>
+  </div>
+  <div class="pull-up">
+    <div class="info-box"><i class="ti ti-shield-lock" aria-hidden="true"></i><div>Solo el administrador puede crear, editar y eliminar usuarios. Los mensajeros solo ven y registran sus propios servicios.</div></div>
+    <div class="card" style="padding:8px 14px;"><div id="usr-lista"></div></div>
+  </div>
+</div>
+
+<!-- ════════════════ REPORTES COMPARTIDOS (solo admin) ════════════════ -->
+<div class="scr" id="s-compartidos">
+  <div class="sec-hdr">
+    <div class="sh-row">
+      <div><div class="sh-title">Reportes recibidos</div><div class="sh-sub">Información enviada por mensajeros</div></div>
+      <button class="sh-btn" onclick="importarReporte()"><i class="ti ti-upload" aria-hidden="true"></i> Importar</button>
+    </div>
+  </div>
+  <div class="pull-up">
+    <div class="info-box" style="background:#e8f0fc;color:#1A3A6B;">
+      <i class="ti ti-info-circle" aria-hidden="true"></i>
+      <div>Importa el archivo <strong>.zxr</strong> que te envíe un mensajero. Su información se mostrará aquí sin afectar tus datos.</div>
+    </div>
+    <div id="compartidos-lista"></div>
+    <input type="file" id="import-input" accept=".zxr,.json" style="display:none;" onchange="procesarImportacion(this)" />
+  </div>
+</div>
+
+<!-- ════════════════ AUDITORÍA (solo admin) ════════════════ -->
+<div class="scr" id="s-auditoria">
+  <div class="sec-hdr">
+    <div class="sh-row">
+      <div><div class="sh-title">Auditoría</div><div class="sh-sub">Registros eliminados por usuarios</div></div>
+    </div>
+  </div>
+  <div class="pull-up">
+    <div class="info-box"><i class="ti ti-eye" aria-hidden="true"></i><div>Aquí aparece todo lo que los mensajeros han eliminado. La información se conserva como evidencia y no puede ser borrada.</div></div>
+    <div id="audit-lista"></div>
+  </div>
+</div>
+
+<!-- ════ MODAL NUEVO SERVICIO ════ -->
+<div class="modal-bg" id="m-srv">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Registrar servicio</h2><button class="m-close" onclick="cerrarModal('m-srv')">×</button></div>
+    <div class="m-body">
+      <div class="fg" id="fg-mensajero"><label>Mensajero *</label><select id="ns-msg"><option value="">Seleccionar mensajero...</option></select></div>
+      <div class="frow">
+        <div class="fg"><label>Fecha *</label><input type="date" id="ns-fecha" /></div>
+        <div class="fg"><label>Hora salida *</label><input type="time" id="ns-hora" /></div>
+      </div>
+      <div class="m-sec">Lugares / personas a visitar</div>
+      <div class="fg">
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="ns-pnom" placeholder="Ej. Oficina central, Lic. Pérez, archivo" style="flex:1;" />
+          <button class="btn-sm btn-ghost" onclick="addPTmp()" type="button" style="padding:0 14px;"><i class="ti ti-plus" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <div id="ns-pers-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
+      <div class="fg"><label>Observaciones / instrucciones</label><textarea id="ns-obs" placeholder="Notas del servicio, referencias o indicaciones..."></textarea></div>
+      <div class="info-box" style="background:#eef2ff;color:#3552b6;margin-top:2px;">
+        <i class="ti ti-info-circle" aria-hidden="true"></i>
+        <div>El monto, el reporte de cierre y la foto del comprobante se capturan al finalizar el servicio desde el móvil del mensajero.</div>
+      </div>
+      <button class="btn-prim btn-acc" onclick="guardarServicio()" style="margin-top:16px;"><i class="ti ti-check" aria-hidden="true"></i> Guardar servicio</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL DETALLE SERVICIO ════ -->
+<div class="modal-bg" id="m-det">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Detalle del servicio</h2><button class="m-close" onclick="cerrarModal('m-det')">×</button></div>
+    <div class="m-body" id="det-body"></div>
+  </div>
+</div>
+
+<!-- ════ MODAL VER FOTO ════ -->
+<div class="modal-bg" id="m-foto">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Evidencia fotográfica</h2><button class="m-close" onclick="cerrarModal('m-foto')">×</button></div>
+    <div class="m-body" style="padding:12px;">
+      <img id="foto-full" src="" alt="Evidencia" style="width:100%;border-radius:12px;display:block;" />
+      <div id="foto-cap" style="font-size:12px;color:var(--sub);margin-top:10px;text-align:center;"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL AGREGAR MENSAJERO ════ -->
+<div class="modal-bg" id="m-addmsg">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Nuevo mensajero</h2><button class="m-close" onclick="cerrarModal('m-addmsg')">×</button></div>
+    <div class="m-body">
+      <div class="fg"><label>Nombre completo *</label><input type="text" id="am-nom" placeholder="Ej. Carlos López" /></div>
+      <div class="fg"><label>Teléfono</label><input type="tel" id="am-tel" placeholder="55 0000 0000" inputmode="tel" /></div>
+      <div class="fg"><label>Zona / Ruta</label><input type="text" id="am-zona" placeholder="Ej. Norte, Centro..." /></div>
+      <button class="btn-prim" onclick="guardarMensajero()" style="margin-top:8px;"><i class="ti ti-user-plus" aria-hidden="true"></i> Registrar mensajero</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL DETALLE MENSAJERO ════ -->
+<div class="modal-bg" id="m-detmsg">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Historial del mensajero</h2><button class="m-close" onclick="cerrarModal('m-detmsg')">×</button></div>
+    <div class="m-body" id="detmsg-body"></div>
+  </div>
+</div>
+
+<!-- ════ MODAL CAMBIAR PIN ════ -->
+<div class="modal-bg" id="m-cambiopin">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Cambiar mi PIN</h2><button class="m-close" onclick="cerrarModal('m-cambiopin')">×</button></div>
+    <div class="m-body">
+      <div style="background:var(--c4);border-radius:10px;padding:12px 14px;display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+        <i class="ti ti-lock-cog" style="font-size:22px;color:var(--c3);" aria-hidden="true"></i>
+        <div style="font-size:12px;color:var(--c2);">Ingresa tu PIN actual y luego el nuevo PIN de 4 dígitos que deseas usar.</div>
+      </div>
+      <div class="fg">
+        <label>PIN actual *</label>
+        <input type="tel" id="cp-actual" placeholder="Tu PIN actual" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="off" />
+      </div>
+      <div class="fg">
+        <label>Nuevo PIN *</label>
+        <input type="tel" id="cp-nuevo" placeholder="4 dígitos numéricos" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password" />
+      </div>
+      <div class="fg">
+        <label>Confirmar nuevo PIN *</label>
+        <input type="tel" id="cp-confirmar" placeholder="Repite el nuevo PIN" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password" />
+      </div>
+      <div class="ls-err" id="cp-err" style="display:none;margin-bottom:10px;"></div>
+      <button class="btn-prim btn-acc" onclick="guardarCambioPin()" style="margin-top:4px;"><i class="ti ti-lock-check" aria-hidden="true"></i> Guardar nuevo PIN</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL EDITAR USUARIO ════ -->
+<div class="modal-bg" id="m-editusr">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Editar usuario</h2><button class="m-close" onclick="cerrarModal('m-editusr')">×</button></div>
+    <div class="m-body">
+      <input type="hidden" id="eu-id" />
+      <div class="fg"><label>Nombre completo *</label><input type="text" id="eu-nom" placeholder="Nombre del usuario" /></div>
+      <div class="fg"><label>Usuario (login)</label><input type="text" id="eu-user" placeholder="Nombre de usuario" autocomplete="off" /></div>
+      <div class="fg"><label>Rol</label>
+        <select id="eu-rol">
+          <option value="mensajero">Mensajero</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div class="fg"><label>Mensajero asociado</label>
+        <select id="eu-msgid"><option value="">Sin asociar</option></select>
+      </div>
+      <div class="m-sec">Cambiar PIN (opcional)</div>
+      <div style="background:var(--c4);border-radius:9px;padding:10px 12px;font-size:12px;color:var(--sub);margin-bottom:12px;">
+        Deja estos campos vacíos si no deseas cambiar el PIN del usuario.
+      </div>
+      <div class="frow">
+        <div class="fg"><label>Nuevo PIN</label><input type="tel" id="eu-pin" placeholder="4 dígitos" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password" /></div>
+        <div class="fg"><label>Confirmar PIN</label><input type="tel" id="eu-pin2" placeholder="4 dígitos" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password" /></div>
+      </div>
+      <div class="ls-err" id="eu-err" style="display:none;margin-bottom:10px;"></div>
+      <button class="btn-prim btn-acc" onclick="guardarEditUsuario()" style="margin-top:4px;"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL CREAR USUARIO ════ -->
+<div class="modal-bg" id="m-addusr">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Crear usuario</h2><button class="m-close" onclick="cerrarModal('m-addusr')">×</button></div>
+    <div class="m-body">
+      <div class="fg"><label>Nombre completo *</label><input type="text" id="au-nom" placeholder="Ej. Carlos López" /></div>
+      <div class="fg"><label>Usuario (para login) *</label><input type="text" id="au-user" placeholder="Ej. carlos" autocomplete="off" /></div>
+      <div class="fg"><label>PIN de acceso (4 dígitos) *</label><input type="tel" id="au-pass" placeholder="Ej. 1234" maxlength="4" inputmode="numeric" pattern="[0-9]{4}" autocomplete="new-password" /></div>
+      <div class="fg"><label>Rol</label>
+        <select id="au-rol">
+          <option value="mensajero">Mensajero</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+      <div class="fg"><label>Mensajero asociado (opcional)</label>
+        <select id="au-msgid"><option value="">Sin asociar</option></select>
+      </div>
+      <button class="btn-prim" onclick="guardarUsuario()" style="margin-top:8px;"><i class="ti ti-user-plus" aria-hidden="true"></i> Crear usuario</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL EDITAR SERVICIO ════ -->
+<div class="modal-bg" id="m-edit">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Editar servicio</h2><button class="m-close" onclick="cerrarModal('m-edit')">×</button></div>
+    <div class="m-body">
+      <input type="hidden" id="ed-id" />
+      <div class="fg" id="ed-fg-msg"><label>Mensajero</label><select id="ed-msg"></select></div>
+      <div class="frow">
+        <div class="fg"><label>Fecha</label><input type="date" id="ed-fecha" /></div>
+        <div class="fg"><label>Hora salida</label><input type="time" id="ed-hora" /></div>
+      </div>
+      <div class="m-sec">Lugares / personas a visitar</div>
+      <div class="fg">
+        <div style="display:flex;gap:8px;">
+          <input type="text" id="ed-pnom" placeholder="Agregar lugar o persona" style="flex:1;" />
+          <button class="btn-sm btn-ghost" onclick="addPEdit()" type="button" style="padding:0 14px;"><i class="ti ti-plus" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <div id="ed-pers-list" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;"></div>
+      <div class="fg"><label>Importe del servicio</label><input type="number" id="ed-monto" placeholder="0.00" min="0" step="0.50" inputmode="decimal" /></div>
+      <div class="fg"><label>Estatus</label><select id="ed-est"><option value="Programado">Programado</option><option value="En curso">En curso</option><option value="Finalizado">Finalizado</option></select></div>
+      <div class="fg"><label>Observaciones / instrucciones</label><textarea id="ed-obs" placeholder="Notas del servicio, referencias o indicaciones..."></textarea></div>
+      <button class="btn-prim btn-acc" onclick="guardarEdicion()" style="margin-top:12px;"><i class="ti ti-device-floppy" aria-hidden="true"></i> Guardar cambios</button>
+    </div>
+  </div>
+</div>
+
+<!-- ════ MODAL FINALIZAR SERVICIO ════ -->
+<div class="modal-bg" id="m-final">
+  <div class="modal-sheet">
+    <div class="m-handle"></div>
+    <div class="m-hdr"><h2>Finalizar servicio</h2><button class="m-close" onclick="cerrarModal('m-final')">×</button></div>
+    <div class="m-body">
+      <input type="hidden" id="fin-id" />
+      <div class="info-box" style="background:#eef2ff;color:#3552b6;"><i class="ti ti-info-circle" aria-hidden="true"></i><div>Al finalizar, deja el reporte de lo ocurrido y adjunta la foto del comprobante o papel de envío.</div></div>
+      <div class="fg"><label>Importe del servicio *</label><input type="number" id="fin-monto" placeholder="0.00" min="0" step="0.50" inputmode="decimal" /></div>
+      <div class="fg"><label>Reporte de cierre *</label><textarea id="fin-reporte" placeholder="Ej. Se visitaron las oficinas. Faltó firma de recepción en la segunda parada..."></textarea></div>
+      <div class="fg"><label>Resultado</label><select id="fin-resultado"><option value="Finalizado correctamente">Finalizado correctamente</option><option value="Finalizado con incidencias">Finalizado con incidencias</option><option value="Pendiente de seguimiento">Pendiente de seguimiento</option></select></div>
+      <div class="m-sec">Foto del comprobante</div>
+      <div id="fin-foto-wrap">
+        <div class="foto-zone" onclick="document.getElementById('fin-foto-input').click()">
+          <i class="ti ti-camera" aria-hidden="true"></i>
+          <span>Tomar foto o seleccionar imagen</span>
+        </div>
+        <input type="file" id="fin-foto-input" accept="image/*" capture="environment" style="display:none;" onchange="cargarFotoFinal(this)" />
+      </div>
+      <button class="btn-prim btn-acc" onclick="guardarFinalizacion()" style="margin-top:16px;"><i class="ti ti-flag-checkered" aria-hidden="true"></i> Finalizar servicio</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- BOTTOM NAV -->
+<nav class="bnav" id="bottom-nav">
+  <button class="bn act" onclick="irA('inicio',this)" aria-label="Inicio"><i class="ti ti-home" aria-hidden="true"></i><span>Inicio</span><div class="bn-bar"></div></button>
+  <button class="bn" onclick="irA('servicios',this)" aria-label="Servicios"><i class="ti ti-car" aria-hidden="true"></i><span>Servicios</span><div class="bn-bar"></div></button>
+  <button class="bn" onclick="irA('msg',this)" aria-label="Mensajeros" id="bn-msg"><i class="ti ti-user-circle" aria-hidden="true"></i><span>Mensajeros</span><div class="bn-bar"></div></button>
+  <button class="bn" onclick="irA('rpt',this)" aria-label="Reportes" id="bn-rpt"><i class="ti ti-chart-bar" aria-hidden="true"></i><span>Reportes</span><div class="bn-bar"></div></button>
+  <button class="bn" onclick="irA('usuarios',this)" aria-label="Usuarios" id="bn-usuarios" style="display:none;"><i class="ti ti-users" aria-hidden="true"></i><span>Usuarios</span><div class="bn-bar"></div></button>
+  <button class="bn" onclick="irA('compartidos',this)" aria-label="Reportes recibidos" id="bn-compartidos" style="display:none;">
+    <div class="bn-badge"><i class="ti ti-inbox" aria-hidden="true"></i><div class="bn-dot" id="compartidos-dot"></div></div>
+    <span>Recibidos</span><div class="bn-bar"></div>
+  </button>
+  <button class="bn" onclick="irA('auditoria',this)" aria-label="Auditoría" id="bn-auditoria" style="display:none;">
+    <div class="bn-badge"><i class="ti ti-shield-check" aria-hidden="true"></i><div class="bn-dot" id="audit-dot"></div></div>
+    <span>Auditoría</span><div class="bn-bar"></div>
+  </button>
+</nav>
+
+</div><!-- /#app -->
+
+<script>
+/* ══════════════════════════════════════════
+   ALMACENAMIENTO — IndexedDB + localStorage
+══════════════════════════════════════════ */
+const DB_NAME='ZavalaExpressDB2', DB_VER=2, STORE='datos';
+const LOCAL_STATE_KEY='ze_v5';
+const AUTH_TOKEN_KEY='ze_token';
+const APP_CONFIG={
+  apiBaseUrl:
+    window.__ZAVALA_CONFIG__?.apiBaseUrl ||
+    (window.location.protocol.startsWith('http') ? window.location.origin : ''),
+};
+let authToken=localStorage.getItem(AUTH_TOKEN_KEY) || null;
+let serverMode=Boolean(APP_CONFIG.apiBaseUrl);
+let db=null;
+
+function saveAuthToken(token){
+  const normalized = typeof token === 'string' ? token.trim() : token;
+  authToken = normalized || null;
+  if(authToken){
+    localStorage.setItem(AUTH_TOKEN_KEY, authToken);
+  } else {
+    localStorage.removeItem(AUTH_TOKEN_KEY);
+  }
+}
+
+function sanitizeStateForCache(state){
+  return {
+    ...state,
+    usuarios: (state.usuarios||[]).map(({pass, ...user}) => user),
+  };
+}
+
+function buildHeaders(extra={}){
+  const headers = {'Content-Type':'application/json', ...extra};
+  if(authToken){
+    headers.Authorization = `Bearer ${authToken}`;
+    headers['X-Access-Token'] = authToken;
+    headers['X-Auth-Token'] = authToken;
+  }
+  return headers;
+}
+
+async function fetchApi(path, options={}){
+  let url = APP_CONFIG.apiBaseUrl.replace(/\/$/, '') + path;
+  const headers = buildHeaders(options.headers);
+  if(authToken && String(authToken).trim() && path.startsWith('/api/')){
+    const separator = url.includes('?') ? '&' : '?';
+    url += `${separator}token=${encodeURIComponent(authToken)}`;
+  }
+  const body = options.body || null;
+  const response = await fetch(url, {...options, headers, body});
+  if(response.status===401){
+    saveAuthToken(null);
+    authToken=null;
+  }
+  return response;
+}
+
+function getPushPlugin(){
+  return window.Capacitor?.Plugins?.PushNotifications || null;
+}
+
+async function registrarTokenPushRemoto(token){
+  if(!serverMode || !authToken || !token) return;
+  try{
+    await fetchApi('/api/zavala/push/register',{
+      method:'POST',
+      body: JSON.stringify({ token, platform:'android' })
+    });
+  }catch(e){
+    console.warn('No se pudo registrar token push en backend', e);
+  }
+}
+
+let syncInFlight = false;
+let syncPending = false;
+let lastSyncedPayload = '';
+let pushListenersReady = false;
+let pushRegistrationReady = false;
+
+async function iniciarPushNativo(){
+  if(pushRegistrationReady) return;
+  if(!sesion || sesion.rol!=='mensajero' || !serverMode || !authToken) return;
+
+  const PushNotifications = getPushPlugin();
+  if(!PushNotifications) return;
+
+  if(!pushListenersReady){
+    PushNotifications.addListener('registration', token => {
+      const value = token?.value || '';
+      if(value){
+        registrarTokenPushRemoto(value);
+      }
+    });
+
+    PushNotifications.addListener('registrationError', err => {
+      console.warn('Push registration error', err);
+    });
+
+    PushNotifications.addListener('pushNotificationReceived', notification => {
+      const msg = notification?.body || notification?.title || 'Nuevo aviso';
+      toast(msg);
+    });
+
+    PushNotifications.addListener('pushNotificationActionPerformed', () => {
+      renderInicio();
+      renderServicios();
+    });
+
+    pushListenersReady = true;
+  }
+
+  try{
+    const perm = await PushNotifications.requestPermissions();
+    if(perm.receive === 'granted'){
+      await PushNotifications.register();
+      pushRegistrationReady = true;
+    }
+  }catch(e){
+    console.warn('No se pudo iniciar push nativo', e);
+  }
+}
+
+function abrirDB(){
+  return new Promise((res,rej)=>{
+    const req=indexedDB.open(DB_NAME,DB_VER);
+    req.onupgradeneeded=e=>{const d=e.target.result;if(!d.objectStoreNames.contains(STORE))d.createObjectStore(STORE);};
+    req.onsuccess=e=>{db=e.target.result;res(db);};
+    req.onerror=e=>rej(e);
+  });
+}
+function dbGet(k){return new Promise(r=>{if(!db){r(null);return;}const tx=db.transaction(STORE,'readonly');const rq=tx.objectStore(STORE).get(k);rq.onsuccess=()=>r(rq.result||null);rq.onerror=()=>r(null);});}
+function dbSet(k,v){return new Promise(r=>{if(!db){r();return;}const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(v,k);tx.oncomplete=()=>r();tx.onerror=()=>r();});}
+
+async function syncServidor(){
+  if(!serverMode || !authToken)return;
+  syncPending = true;
+  if(syncInFlight)return;
+  syncInFlight = true;
+  try{
+    while(syncPending){
+      if(!authToken){
+        syncPending = false;
+        break;
+      }
+      syncPending = false;
+      const payload = JSON.stringify(D);
+      if(payload===lastSyncedPayload)continue;
+      const res = await fetchApi('/api/zavala/state',{
+        method:'POST',
+        body:payload
+      });
+      if(res && res.ok){
+        lastSyncedPayload = payload;
+      } else {
+        console.warn('syncServidor failed', res ? res.status : 'no response');
+        // Stop retry storm when auth is missing/expired.
+        if(res && res.status===401){
+          syncPending = false;
+          break;
+        }
+        syncPending = Boolean(authToken);
+      }
+    }
+  }catch(e){
+    console.warn('syncServidor error', e);
+    syncPending = Boolean(authToken);
+  }
+  finally{
+    syncInFlight = false;
+  }
+}
+
+function guardarTodo(){
+  const j=JSON.stringify(D);
+  try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
+  dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
+  syncServidor();
+}
+
+/* ══════════════════════════════════════════
+   ESTADO GLOBAL
+══════════════════════════════════════════ */
+let D={
+  usuarios:[{id:1,nombre:'Administrador',user:'admin',pass:'1234',rol:'admin',msgId:null}],
+  mensajeros:[
+    {id:1,nombre:'Carlos López',tel:'55 1111 2222',zona:'Norte'},
+    {id:2,nombre:'Jorge Méndez',tel:'55 3333 4444',zona:'Sur'},
+    {id:3,nombre:'Ana Ruiz',tel:'55 5555 6666',zona:'Centro'}
+  ],
+  servicios:[],
+  auditoria:[],   // papelera de evidencia — nunca se borra
+  nxtId:1,nxtFolio:1,nxtUsrId:2
+};
+
+let sesion=null;   // usuario logueado
+let fS='todos', tmpP=[], tmpFoto=null;
+
+/* ══════════════════════════════════════════
+   CARGA DE DATOS
+══════════════════════════════════════════ */
+async function cargarDatos(){
+  if(APP_CONFIG.apiBaseUrl){
+    try{
+      if(authToken){
+        const r=await fetchApi('/api/zavala/state');
+        if(r && r.ok){
+          const srv=await r.json();
+          if(srv&&srv.servicios!==undefined){
+            srv.usuarios = Array.isArray(srv.usuarios)
+              ? srv.usuarios.map((u) => ({
+                  ...u,
+                  id: Number(u.id),
+                  msgId: u.msgId === null ? null : Number(u.msgId),
+                }))
+              : [];
+            D=srv;
+            return;
+          }
+        }
+      } else {
+        const ru=await fetchApi('/api/zavala/users');
+        if(ru && ru.ok){
+          const users=await ru.json();
+          if(Array.isArray(users) && users.length){
+            D.usuarios = users.map((u) => ({
+              ...u,
+              id: Number(u.id),
+              msgId: u.msgId === null ? null : Number(u.msgId),
+            }));
+            return;
+          }
+        }
+      }
+    }catch(e){console.warn('No se pudo cargar estado remoto:', e);}
+  }
+  const idb=await dbGet('app').catch(()=>null);
+  if(idb&&idb.servicios!==undefined){D=idb;return;}
+  try{const ls=localStorage.getItem('ze_v5');if(ls){D=JSON.parse(ls);return;}}catch(e){}
+}
+
+/* ══════════════════════════════════════════
+   UTILIDADES
+══════════════════════════════════════════ */
+function hoy(){return new Date().toISOString().slice(0,10);}
+function fFecha(d){if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;}
+function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
+function abrirModal(id){document.getElementById(id).classList.add('open');}
+function cerrarModal(id){document.getElementById(id).classList.remove('open');}
+function parseServicioDate(v){
+  if(!v||!v.fecha) return null;
+  const hora=v.hora||'12:00';
+  const datetime=`${v.fecha}T${hora.length===5?hora:hora.slice(0,5)}:00`;
+  const d=new Date(datetime);
+  return Number.isNaN(d.valueOf())?null:d;
+}
+function enviarNotificacion(titulo,mensaje){
+  if('Notification' in window && Notification.permission==='granted'){
+    try{new Notification(titulo,{body:mensaje,icon:'https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.7.0/dist/tabler-icons.svg'});}catch(e){}
+  }
+  toast(mensaje);
+}
+function solicitarPermisoNotificaciones(){
+  if(!('Notification' in window))return;
+  if(Notification.permission==='default'){
+    Notification.requestPermission().then(()=>{});
+  }
+}
+function buildRecordatorioPanel(){
+  const panel=document.getElementById('recordatorio-panel');
+  if(!panel)return;
+  const recordatorios=getRecordatoriosPendientes();
+  if(!recordatorios.length){panel.style.display='none';return;}
+  panel.style.display='block';
+  panel.innerHTML=`<div class="card-hdr"><div class="card-ttl"><i class="ti ti-bell" aria-hidden="true"></i> Recordatorios</div></div>${recordatorios.map(r=>`<div style="padding:10px 0;border-bottom:1px solid rgba(13,27,62,.08);"><strong>${r.titulo}</strong><div style="font-size:12px;color:var(--sub);margin-top:4px;">${r.mensaje}</div></div>`).join('')}`;
+}
+function getRecordatoriosPendientes(){
+  if(!sesion||sesion.rol!=='mensajero')return[];
+  const ahora=new Date();
+  const pendientes=[];
+  const servicios=serviciosVisibles().filter(v=>!v.eliminadoPor);
+  servicios.forEach(v=>{
+    const when=parseServicioDate(v);
+    if(!when)return;
+    v.recordatoriosEnviadas=v.recordatoriosEnviadas||{};
+    const recordatorios=[
+      {key:'pre2d',offset:-2*24*3600*1000,label:'2 días antes',mensaje:`Servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'pre1d',offset:-24*3600*1000,label:'1 día antes',mensaje:`Servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'pre3h',offset:-3*3600*1000,label:'3 horas antes',mensaje:`Servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'postFinalizar',offset:0,label:'Finalizar entrega',mensaje:`Ya pasó la hora de este servicio. Recuerda finalizarlo.` ,after:true}
+    ];
+    recordatorios.forEach(r=>{
+      if(v.recordatoriosEnviadas[r.key])return;
+      const target = new Date(when.valueOf() + r.offset);
+      if(r.after){
+        if(ahora>when && !v.finalizadoPor){
+          pendientes.push({titulo:r.label, mensaje:`${r.mensaje} (${v.folio})`, id:v.id, key:r.key});
+        }
+      } else if(ahora>=target && ahora<new Date(target.valueOf()+3600000)){
+        pendientes.push({titulo:r.label, mensaje:`${r.mensaje} (${v.folio})`, id:v.id, key:r.key});
+      }
+    });
+  });
+  return pendientes.sort((a,b)=>a.id-b.id);
+}
+function marcarRecordatorioEnviado(v,key){
+  v.recordatoriosEnviadas=v.recordatoriosEnviadas||{};
+  v.recordatoriosEnviadas[key]=true;
+}
+function checkRecordatorios(){
+  if(!sesion||sesion.rol!=='mensajero')return;
+  const ahora=new Date();
+  let send=false;
+  serviciosVisibles().filter(v=>!v.eliminadoPor).forEach(v=>{
+    const when=parseServicioDate(v);
+    if(!when) return;
+    v.recordatoriosEnviadas=v.recordatoriosEnviadas||{};
+    const avisos=[
+      {key:'pre2d',time:new Date(when.valueOf()-2*24*3600*1000),mensaje:`Tienes un servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'pre1d',time:new Date(when.valueOf()-24*3600*1000),mensaje:`Recuerda que tienes un servicio el ${fFecha(v.fecha)} a las ${v.hora||'00:00'}.`},
+      {key:'pre3h',time:new Date(when.valueOf()-3*3600*1000),mensaje:`En 3 horas tienes servicio programado para las ${v.hora||'00:00'}.`},
+      {key:'postFinalizar',time:when,after:true,mensaje:`Ya pasó la hora programada de este servicio. Finaliza la entrega cuando puedas.`}
+    ];
+    avisos.forEach(a=>{
+      if(v.recordatoriosEnviadas[a.key])return;
+      if(a.after){
+        if(ahora> a.time && !v.finalizadoPor){
+          enviarNotificacion('Recordatorio de entrega', a.mensaje);
+          marcarRecordatorioEnviado(v,a.key);
+          send=true;
+        }
+      } else if(ahora>=a.time && ahora < new Date(a.time.valueOf()+60000)){
+        enviarNotificacion('Recordatorio de entrega', a.mensaje);
+        marcarRecordatorioEnviado(v,a.key);
+        send=true;
+      }
+    });
+  });
+  if(send) guardarTodo();
+  buildRecordatorioPanel();
+}
+function msgNom(id){const m=D.mensajeros.find(x=>x.id===id);return m?m.nombre:'Sin asignar';}
+function ini(n){return(n||'?').split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();}
+function esAdmin(){return sesion&&sesion.rol==='admin';}
+function estadoServicio(v){return v&&v.finalizadoPor?'Finalizado':(v&&v.estatus)||'Programado';}
+function puedeFinalizar(v){
+  if(!v||v.finalizadoPor||!sesion||sesion.msgId!==v.msgId) return false;
+  return v.fecha&&v.fecha<=hoy();
+}
+function crearMensajeroSiFalta(nombre){
+  const limpio=(nombre||'').trim();
+  if(!limpio)return null;
+  const existente=D.mensajeros.find(m=>m.nombre.trim().toLowerCase()===limpio.toLowerCase());
+  if(existente)return existente.id;
+  const nuevo={id:Date.now(),nombre:limpio,tel:'',zona:''};
+  D.mensajeros.push(nuevo);
+  return nuevo.id;
+}
+
+function normalizarMensajerosDesdeUsuarios(){
+  let cambio=false;
+  (D.usuarios||[]).forEach(u=>{
+    if(u.rol!=='mensajero')return;
+    let mid=u.msgId||null;
+    let encontrado=null;
+    if(mid){
+      encontrado=D.mensajeros.find(m=>m.id===mid) || null;
+    }
+    if(!encontrado){
+      encontrado=D.mensajeros.find(m=>m.nombre.trim().toLowerCase()===u.nombre.trim().toLowerCase()) || null;
+    }
+    if(!encontrado){
+      mid=crearMensajeroSiFalta(u.nombre);
+      cambio=true;
+    } else if(u.msgId!==encontrado.id){
+      mid=encontrado.id;
+      cambio=true;
+    }
+    if(u.msgId!==mid){
+      u.msgId=mid;
+      cambio=true;
+    }
+  });
+  return cambio;
+}
+
+function opcionesMensajeros(){
+  const vistos=new Set();
+  return (D.mensajeros||[]).filter(m=>{
+    const key=String(m.nombre||'').trim().toLowerCase();
+    if(!key||vistos.has(key))return false;
+    vistos.add(key);
+    return true;
+  });
+}
+
+/* ══════════════════════════════════════════
+   LOGIN PIN
+══════════════════════════════════════════ */
+let pinBuffer='', pinUserSel=null;
+
+function renderLoginUsuarios(){
+  const lista=document.getElementById('pin-usuarios-list');
+  if(!lista)return;
+  lista.innerHTML=D.usuarios.map(u=>`
+    <button class="pin-usr-btn" onclick="seleccionarUsuario(${u.id})">
+      <div class="pin-usr-av">${ini(u.nombre)}</div>
+      <div>
+        <div class="pin-usr-name">${u.nombre}</div>
+        <div class="pin-usr-rol">${u.rol==='admin'?'Administrador':'Mensajero'}</div>
+      </div>
+      <i class="ti ti-chevron-right pin-usr-arrow" aria-hidden="true"></i>
+    </button>`).join('');
+}
+
+function seleccionarUsuario(id){
+  pinUserSel=D.usuarios.find(u=>u.id==id);
+  if(!pinUserSel)return;
+  pinBuffer='';
+  document.getElementById('pin-paso1').style.display='none';
+  document.getElementById('pin-paso2').style.display='block';
+  document.getElementById('pin-avatar').textContent=ini(pinUserSel.nombre);
+  document.getElementById('pin-nombre-lbl').textContent=pinUserSel.nombre;
+  document.getElementById('li-err').style.display='none';
+  actualizarPuntos();
+}
+
+function pinTecla(d){
+  if(pinBuffer.length>=4)return;
+  pinBuffer+=d;
+  actualizarPuntos();
+  if(pinBuffer.length===4)setTimeout(verificarPIN,150);
+}
+
+function pinBorrar(){
+  pinBuffer=pinBuffer.slice(0,-1);
+  actualizarPuntos();
+}
+
+function pinVolver(){
+  pinBuffer='';
+  pinUserSel=null;
+  document.getElementById('pin-paso1').style.display='block';
+  document.getElementById('pin-paso2').style.display='none';
+  document.getElementById('li-err').style.display='none';
+  actualizarPuntos();
+}
+
+function actualizarPuntos(){
+  for(let i=0;i<4;i++){
+    const d=document.getElementById('pd'+i);
+    if(d){d.className='pin-dot'+(i<pinBuffer.length?' fill':'');}
+  }
+}
+
+async function verificarPIN(){
+  if(serverMode){
+    await iniciarLoginRemoto(pinUserSel?.user || pinUserSel?.username || pinUserSel?.usuario, pinBuffer);
+    return;
+  }
+  if(pinUserSel.pass===pinBuffer){
+    entrarConUsuario(pinUserSel);
+  } else {
+    // Animación error
+    for(let i=0;i<4;i++){const d=document.getElementById('pd'+i);if(d)d.className='pin-dot err';}
+    document.getElementById('li-err').style.display='block';
+    setTimeout(()=>{
+      pinBuffer='';
+      actualizarPuntos();
+      document.getElementById('li-err').style.display='none';
+    },900);
+  }
+}
+
+async function iniciarLoginRemoto(user, pin){
+  if(!serverMode) return;
+  const loginUser = user || pinUserSel?.user || pinUserSel?.username || pinUserSel?.usuario;
+  try{
+    const res = await fetchApi('/api/zavala/login', {
+      method:'POST',
+      body:JSON.stringify({user: loginUser, pass: pin})
+    });
+    if(!res){
+      mostrarErrorLogin('No autorizado. Verifica tu conexión.');
+      return;
+    }
+    if(!res.ok){
+      mostrarErrorLogin('PIN incorrecto');
+      return;
+    }
+    const data = await res.json();
+    if(data.ok && data.token){
+      saveAuthToken(data.token);
+      if(data.state && data.state.servicios!==undefined){
+        D = data.state;
+      }
+      const found = data.usuario || (D.usuarios||[]).find(u => u.user===user);
+      if(found){
+        pinUserSel = found;
+        entrarConUsuario(found);
+      }
+    } else {
+      mostrarErrorLogin(data.message || 'Error al iniciar sesión');
+    }
+  } catch (error){
+    console.error(error);
+    mostrarErrorLogin('Error al conectar con el servidor');
+  }
+}
+
+function mostrarErrorLogin(message){
+  document.getElementById('li-err').textContent = message;
+  document.getElementById('li-err').style.display = 'block';
+  for(let i=0;i<4;i++){const d=document.getElementById('pd'+i);if(d)d.className='pin-dot err';}
+  setTimeout(()=>{
+    pinBuffer='';
+    actualizarPuntos();
+    document.getElementById('li-err').textContent='PIN incorrecto';
+    document.getElementById('li-err').style.display='none';
+  },1200);
+}
+
+function entrarConUsuario(found){
+  sesion=found;
+  document.getElementById('login-screen').classList.add('hide');
+  document.getElementById('tb-av').textContent=ini(found.nombre);
+  document.getElementById('tb-uname').textContent=found.nombre.split(' ')[0];
+  const rb=document.getElementById('tb-rol-badge');
+  rb.textContent=found.rol==='admin'?'Admin':'Mensajero';
+  rb.className='tb-rol '+(found.rol==='admin'?'rol-admin':'rol-msg');
+  document.getElementById('btn-nuevo-srv').style.display=esAdmin()?'flex':'none';
+  document.getElementById('bn-usuarios').style.display=esAdmin()?'flex':'none';
+  document.getElementById('bn-auditoria').style.display=esAdmin()?'flex':'none';
+  document.getElementById('bn-compartidos').style.display=esAdmin()?'flex':'none';
+  document.getElementById('ftab-eliminados').style.display=esAdmin()?'block':'none';
+  document.getElementById('btn-add-msg').style.display=esAdmin()?'flex':'none';
+  document.getElementById('fg-mensajero').style.display=esAdmin()?'flex':'none';
+  // Ocultar selector de mensajero en reportes para mensajeros (ven solo el suyo)
+  const rptMsgContainer=document.querySelector('.pull-up #rpt-msg')?.closest('.fg');
+  if(rptMsgContainer)rptMsgContainer.style.display=esAdmin()?'flex':'none';
+  iniciarVista();
+}
+
+async function doLogout(){
+  if(authToken && serverMode){
+    try{
+      const res = await fetchApi('/api/zavala/logout', {method:'POST'});
+      if(res && !res.ok){
+        console.warn('Logout remoto falló');
+      }
+    }catch(e){}
+  }
+  saveAuthToken(null);
+  pushRegistrationReady=false;
+  sesion=null;
+  pinBuffer='';
+  pinUserSel=null;
+  document.getElementById('pin-paso1').style.display='block';
+  document.getElementById('pin-paso2').style.display='none';
+  document.getElementById('li-err').style.display='none';
+  actualizarPuntos();
+  if(serverMode){
+    try{
+      const r = await fetchApi('/api/zavala/users');
+      if(r && r.ok){
+        const users = await r.json();
+        if(Array.isArray(users) && users.length){
+          D.usuarios = users;
+        }
+      }
+    }catch(e){
+      console.warn('No se pudo recargar usuarios remotos al cerrar sesión:', e);
+    }
+  }
+  document.getElementById('login-screen').classList.remove('hide');
+  renderLoginUsuarios();
+}
+
+/* ══════════════════════════════════════════
+   NAVEGACIÓN
+══════════════════════════════════════════ */
+function irA(name,btn){
+  document.querySelectorAll('.scr').forEach(s=>s.classList.remove('act'));
+  document.querySelectorAll('.bn').forEach(b=>b.classList.remove('act'));
+  document.getElementById('s-'+name).classList.add('act');
+  btn.classList.add('act');
+  const fns={inicio:renderInicio,servicios:renderServicios,msg:renderMensajeros,rpt:renderRptSel,usuarios:renderUsuarios,auditoria:renderAuditoria,compartidos:renderCompartidos};
+  if(fns[name])fns[name]();
+}
+
+function iniciarVista(){
+  document.getElementById('ini-fecha').textContent=new Date().toLocaleDateString('es-MX',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
+  document.getElementById('ini-sal').textContent='Hola, '+sesion.nombre.split(' ')[0]+' 👋';
+  llenarSels();
+  solicitarPermisoNotificaciones();
+  renderInicio();
+  actualizarDotAuditoria();
+  checkRecordatorios();
+  setInterval(checkRecordatorios, 60000);
+  iniciarPushNativo();
+}
+
+/* ══════════════════════════════════════════
+   SERVICIOS — render
+══════════════════════════════════════════ */
+function serviciosVisibles(){
+  // Admin ve todos; mensajero ve solo los suyos (por msgId asociado)
+  if(esAdmin())return D.servicios;
+  const mid=sesion.msgId;
+  return D.servicios.filter(v=>v.msgId===mid);
+}
+
+function srvItem(v,modoLista){
+  const elim=!!v.eliminadoPor;
+  const ps=(v.personas||[]).slice(0,3).join(', ')+((v.personas||[]).length>3?' +'+(v.personas.length-3)+' más':'');
+  const est=estadoServicio(v);
+  const bc=elim?'b-del':est==='Finalizado'?'b-fin':est==='En curso'?'b-ruta':'b-prog';
+  const hF=v.foto&&v.foto.length>10;
+  return`<div class="srv-item${elim?' eliminado':''}" onclick="${elim&&!esAdmin()?'':('verDetalle('+v.id+')')}">
+    <div class="si-top">
+      <span class="si-folio${elim?' del':''}">${v.folio}${elim?' ✕':''}</span>
+      <span class="si-fecha">${fFecha(v.fecha)} ${v.hora||''}</span>
+    </div>
+    <div class="si-msg"><i class="ti ti-car" aria-hidden="true"></i>${msgNom(v.msgId)}</div>
+    <div class="si-pers"><i class="ti ti-users" style="font-size:11px;" aria-hidden="true"></i> ${ps||'Sin personas'}</div>
+    <div class="si-bot">
+      <span class="si-monto" style="${elim?'color:var(--red);text-decoration:line-through;':''}">$${parseFloat(v.monto||0).toFixed(0)}</span>
+      <div style="display:flex;align-items:center;gap:7px;">
+        ${hF?`<span style="font-size:11px;color:var(--c3);font-weight:600;display:flex;align-items:center;gap:3px;"><i class="ti ti-photo" aria-hidden="true"></i>Foto</span>`:''}
+        <span class="badge ${bc}">${elim?'ELIMINADO':est}</span>
+      </div>
+    </div>
+    ${elim?`<div class="del-banner"><i class="ti ti-alert-triangle" aria-hidden="true"></i>Eliminado por ${v.eliminadoPor} · ${fFecha(v.eliminadoEn)}</div>`:''}
+  </div>`;
+}
+
+function renderInicio(){
+  const td=hoy();
+  const todos=serviciosVisibles().filter(v=>!v.eliminadoPor);
+  const sh=todos.filter(v=>v.fecha===td);
+  document.getElementById('st-srv').textContent=sh.length;
+  document.getElementById('st-msg').textContent=new Set(sh.map(v=>v.msgId)).size;
+  document.getElementById('st-vis').textContent=sh.reduce((a,v)=>a+(v.personas||[]).length,0);
+  document.getElementById('st-ing').textContent='$'+sh.reduce((a,v)=>a+parseFloat(v.monto||0),0).toFixed(0);
+  const r=[...todos].sort((a,b)=>b.id-a.id).slice(0,5);
+  document.getElementById('ini-lista').innerHTML=r.length?r.map(v=>srvItem(v)).join(''):'<div class="empty"><i class="ti ti-car" aria-hidden="true"></i><p>Sin servicios aún.<br>Toca "+ Nuevo servicio" para comenzar.</p></div>';
+}
+
+function setFS(f,el){
+  fS=f;
+  document.querySelectorAll('.ftab').forEach(t=>t.classList.remove('on'));
+  el.classList.add('on');
+  renderServicios();
+}
+
+function renderServicios(){
+  const q=(document.getElementById('srv-search').value||'').toLowerCase();
+  let list=serviciosVisibles();
+  if(fS==='eliminados'){list=list.filter(v=>v.eliminadoPor);}
+  else{
+    list=list.filter(v=>!v.eliminadoPor);
+    if(fS==='programados')list=list.filter(v=>estadoServicio(v)==='Programado');
+    else if(fS==='en-curso')list=list.filter(v=>estadoServicio(v)==='En curso');
+    else if(fS==='finalizados')list=list.filter(v=>estadoServicio(v)==='Finalizado');
+  }
+  if(q)list=list.filter(v=>v.folio.toLowerCase().includes(q)||msgNom(v.msgId).toLowerCase().includes(q)||(v.personas||[]).some(p=>p.toLowerCase().includes(q)));
+  list=[...list].sort((a,b)=>b.id-a.id);
+  document.getElementById('srv-hdr-sub').textContent=list.length+' servicios';
+  document.getElementById('srv-lista').innerHTML=list.length?list.map(v=>srvItem(v)).join(''):'<div class="empty"><i class="ti ti-search" aria-hidden="true"></i><p>Sin resultados</p></div>';
+}
+
+/* ══════════════════════════════════════════
+   DETALLE SERVICIO
+══════════════════════════════════════════ */
+function verDetalle(id){
+  const v=D.servicios.find(x=>x.id===id);
+  if(!v)return;
+  const elim=!!v.eliminadoPor;
+  const est=estadoServicio(v);
+  const bc=elim?'b-del':est==='Finalizado'?'b-fin':est==='En curso'?'b-ruta':'b-prog';
+  const hF=v.foto&&v.foto.length>10;
+  const puedeEditar=!elim&&esAdmin();
+  const puedeElim=!elim&&esAdmin();
+  const puedeCerrar=puedeFinalizar(v);
+
+  document.getElementById('det-body').innerHTML=`
+    ${elim?`<div class="del-banner" style="margin-bottom:14px;font-size:12px;padding:10px 14px;"><i class="ti ti-alert-triangle" aria-hidden="true"></i><div>Este servicio fue eliminado por <strong>${v.eliminadoPor}</strong> el ${fFecha(v.eliminadoEn)}.<br>Se conserva como evidencia y no puede borrarse.</div></div>`:''}
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;">
+      <div>
+        <div style="font-size:17px;font-weight:700;color:${elim?'var(--red)':'var(--c3)'};${elim?'text-decoration:line-through;':''}">${v.folio}</div>
+        <div style="font-size:12px;color:var(--sub);margin-top:2px;">${fFecha(v.fecha)} · ${v.hora||'—'} hrs</div>
+      </div>
+      <span class="badge ${bc}">${elim?'ELIMINADO':est}</span>
+    </div>
+    <div class="dr"><span class="dk">Mensajero</span><span class="dv">${msgNom(v.msgId)}</span></div>
+    <div class="sep"></div>
+    <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;">Lugares / personas a visitar (${(v.personas||[]).length})</div>
+    <div class="rv-personas">${(v.personas||[]).map(p=>`<div class="rv-persona"><i class="ti ti-user-check" aria-hidden="true"></i>${p}</div>`).join('')||'<div style="font-size:12px;color:var(--sub);">Sin personas</div>'}</div>
+    ${v.obs?`<div style="background:#F8F4E8;border-radius:9px;padding:10px 12px;margin:10px 0;font-size:13px;color:var(--warn);"><i class="ti ti-note" style="font-size:13px;" aria-hidden="true"></i> <strong>Obs:</strong> ${v.obs}</div>`:''}
+    <div class="rv-monto"><span class="rv-monto-lbl"><i class="ti ti-cash" aria-hidden="true"></i> Monto cobrado</span><span class="rv-monto-val">$${parseFloat(v.monto||0).toFixed(2)}</span></div>
+    <div class="sep"></div>
+    <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Evidencia fotográfica</div>
+    ${hF
+      ?`<div class="rv-foto" onclick="verFoto(${id})"><img src="${v.foto}" alt="Evidencia" /><div style="padding:8px 12px;font-size:12px;color:var(--c3);font-weight:600;display:flex;align-items:center;gap:5px;"><i class="ti ti-zoom-in" aria-hidden="true"></i> Toca para ampliar</div></div>`
+      :(!elim?`<div class="foto-zone" onclick="document.getElementById('foto-det').click()"><i class="ti ti-camera" aria-hidden="true"></i><span>Sin foto — Toca para agregar</span></div><input type="file" id="foto-det" accept="image/*" capture="environment" style="display:none;" onchange="guardarFotoDet(this,${id})" />`:'<div style="font-size:12px;color:var(--sub);"><i class="ti ti-camera" aria-hidden="true"></i> Sin evidencia fotográfica</div>')}
+    ${!elim?`
+    ${v.finalizadoPor?`<div class="finish-box"><h3>Servicio finalizado</h3><div class="finish-meta"><strong>Por:</strong> ${v.finalizadoPor}<br><strong>Resultado:</strong> ${v.finalizadoResultado||'Finalizado correctamente'}<br><strong>Fecha:</strong> ${v.finalizadoEn?new Date(v.finalizadoEn).toLocaleString('es-MX'):'—'}</div>${v.finalizadoReporte?`<div style="margin-top:10px;font-size:13px;color:var(--txt);"><strong>Reporte:</strong> ${v.finalizadoReporte}</div>`:''}
+      ${v.fotoFinal?`<div style="margin-top:12px;">
+        <div class="rv-foto" onclick="verFoto(${id})"><img src="${v.fotoFinal}" alt="Comprobante final" /></div>
+        ${sesion&&sesion.msgId===v.msgId&&((v.fotoFinalReemplazos||0)<1)?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;"><input type="file" id="repl-foto-${id}" accept="image/*" capture="environment" style="display:none;" onchange="guardarReemplazoFoto(this,${id})" /><button class="btn-sm btn-ghost" onclick="document.getElementById('repl-foto-${id}').click()">Reemplazar foto (1 vez)</button><span style="font-size:12px;color:var(--sub);">Reemplazos usados: ${(v.fotoFinalReemplazos||0)}/1</span></div>`:''}
+      </div>`:''}
+    </div>`:''}
+    <div style="margin-top:16px;">
+      <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Cambiar estatus</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        ${!v.finalizadoPor?`<button class="btn-sm btn-ghost" onclick="cambEst(${id},'Programado');cerrarModal('m-det')">Programado</button><button class="btn-sm btn-ghost" onclick="cambEst(${id},'En curso');cerrarModal('m-det')">En curso</button>`:''}
+        ${puedeCerrar?`<button class="btn-sm btn-ok" onclick="abrirFinalizacion(${id});cerrarModal('m-det')"><i class="ti ti-flag-checkered" aria-hidden="true"></i> Finalizar servicio</button>`:''}
+        ${puedeEditar?`<button class="btn-sm btn-ghost" onclick="abrirEdicion(${id});cerrarModal('m-det')" style="margin-left:auto;"><i class="ti ti-edit" aria-hidden="true"></i> Editar</button>`:''}
+      </div>
+    </div>
+    ${esAdmin()?`<button class="btn-sm btn-del" style="margin-top:14px;width:100%;justify-content:center;" onclick="elimSrv(${id})"><i class="ti ti-trash" aria-hidden="true"></i> Eliminar servicio</button>`:''}
+    `:''}
+  `;
+  abrirModal('m-det');
+}
+
+function verFoto(id){
+  const v=D.servicios.find(x=>x.id===id);
+  document.getElementById('foto-full').src=v.foto;
+  document.getElementById('foto-cap').textContent=v.folio+' · '+msgNom(v.msgId)+' · '+fFecha(v.fecha);
+  abrirModal('m-foto');
+}
+
+function guardarFotoDet(input,id){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{const v=D.servicios.find(x=>x.id===id);if(v){v.foto=e.target.result;guardarTodo();verDetalle(id);toast('✓ Foto guardada');}};
+  r.readAsDataURL(f);
+}
+
+function cambEst(id,est){
+  const v=D.servicios.find(x=>x.id===id);
+  if(v){
+    if(v.finalizadoPor){toast('Este servicio ya fue finalizado.');return;}
+    v.estatus=est;guardarTodo();renderInicio();renderServicios();toast('✓ Estatus: '+est);
+  }
+}
+
+function elimSrv(id){
+  if(!confirm('¿Eliminar este servicio?\n\nEl administrador podrá verlo en la sección de Auditoría como evidencia.'))return;
+  const v=D.servicios.find(x=>x.id===id);
+  if(!v)return;
+  v.eliminadoPor=sesion.nombre;
+  v.eliminadoEn=hoy();
+  // Registrar en auditoría
+  D.auditoria.push({
+    ts:new Date().toISOString(),
+    por:sesion.nombre,
+    rol:sesion.rol,
+    folio:v.folio,
+    msgNombre:msgNom(v.msgId),
+    fecha:v.fecha,hora:v.hora,
+    personas:[...(v.personas||[])],
+    monto:v.monto,obs:v.obs,
+    srvId:id
+  });
+  guardarTodo();
+  cerrarModal('m-det');
+  renderInicio();renderServicios();
+  actualizarDotAuditoria();
+  toast('✓ Servicio marcado como eliminado');
+}
+
+/* ══════════════════════════════════════════
+   NUEVO SERVICIO
+══════════════════════════════════════════ */
+function abrirServicio(){
+  if(!esAdmin()){toast('Solo el contador puede crear servicios.');return;}
+  tmpP=[];tmpFoto=null;
+  ['ns-obs','ns-pnom'].forEach(x=>document.getElementById(x).value='');
+  document.getElementById('ns-fecha').value=hoy();
+  document.getElementById('ns-hora').value=new Date().toTimeString().slice(0,5);
+  document.getElementById('ns-msg').value='';
+  renderPTmp();llenarSels();
+  abrirModal('m-srv');
+}
+
+function addPTmp(){
+  const n=document.getElementById('ns-pnom').value.trim();
+  if(!n)return;
+  if(tmpP.includes(n)){toast('Ya está en la lista');return;}
+  tmpP.push(n);document.getElementById('ns-pnom').value='';renderPTmp();
+}
+
+function quitarP(i){tmpP.splice(i,1);renderPTmp();}
+
+function renderPTmp(){
+  const div=document.getElementById('ns-pers-list');
+  div.innerHTML=tmpP.length
+    ?tmpP.map((p,i)=>`<div class="p-chip"><div style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--c2);font-weight:600;"><i class="ti ti-user-check" style="font-size:12px;" aria-hidden="true"></i>${p}</div><button class="p-chip-del" onclick="quitarP(${i})" type="button">×</button></div>`).join('')
+    :'<div style="font-size:12px;color:var(--sub);padding:4px 0;">Escribe un nombre y toca <strong>+</strong> para agregar personas.</div>';
+}
+
+function cargarFoto(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    tmpFoto=e.target.result;
+    document.getElementById('foto-wrap').innerHTML=`
+      <div class="foto-preview"><img src="${tmpFoto}" alt="Evidencia" />
+        <div style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:var(--ok);font-weight:700;"><i class="ti ti-check" aria-hidden="true"></i> Foto lista</span>
+          <button class="btn-sm btn-ghost" onclick="resetFoto()" type="button">Cambiar</button>
+        </div>
+      </div>`;
+    toast('✓ Foto cargada');
+  };
+  r.readAsDataURL(f);
+}
+
+function resetFoto(){
+  tmpFoto=null;
+  document.getElementById('foto-wrap').innerHTML=`
+    <div class="foto-zone" onclick="document.getElementById('foto-input-r').click()">
+      <i class="ti ti-camera" aria-hidden="true"></i><span>Tomar foto o seleccionar imagen</span>
+    </div>
+    <input type="file" id="foto-input-r" accept="image/*" capture="environment" style="display:none;" onchange="cargarFoto(this)" />`;
+}
+
+function guardarServicio(){
+  if(!esAdmin()){alert('Solo el contador puede crear servicios.');return;}
+  const msgId=parseInt(document.getElementById('ns-msg').value);
+  if(!msgId){alert('Selecciona un mensajero.');return;}
+  if(!tmpP.length){alert('Agrega al menos una persona visitada.');return;}
+  const fecha=document.getElementById('ns-fecha').value;
+  if(!fecha){alert('Selecciona una fecha.');return;}
+  const folio='SV-'+String(D.nxtFolio++).padStart(4,'0');
+  D.servicios.push({id:D.nxtId++,folio,msgId,personas:[...tmpP],fecha,hora:document.getElementById('ns-hora').value,monto:0,estatus:'Programado',obs:document.getElementById('ns-obs').value.trim(),foto:null,creadoPor:sesion.nombre,creadoEn:new Date().toISOString(),finalizadoPor:null,finalizadoEn:null,finalizadoReporte:'',finalizadoResultado:'',fotoFinal:''});
+  guardarTodo();cerrarModal('m-srv');renderInicio();renderServicios();
+  toast('✓ Servicio '+folio+' registrado');
+}
+
+let finalizarServicioId=null;
+let tmpFinalFoto=null;
+
+function abrirFinalizacion(id){
+  const v=D.servicios.find(x=>x.id===id);
+  if(!v||!puedeFinalizar(v)){toast('No tienes permiso para finalizar este servicio.');return;}
+  finalizarServicioId=id;
+  tmpFinalFoto=null;
+  document.getElementById('fin-id').value=id;
+  document.getElementById('fin-monto').value=v.monto||'';
+  document.getElementById('fin-reporte').value='';
+  document.getElementById('fin-resultado').value='Finalizado correctamente';
+  document.getElementById('fin-foto-wrap').innerHTML=`
+    <div class="foto-zone" onclick="document.getElementById('fin-foto-input').click()">
+      <i class="ti ti-camera" aria-hidden="true"></i>
+      <span>Tomar foto o seleccionar imagen</span>
+    </div>
+    <input type="file" id="fin-foto-input" accept="image/*" capture="environment" style="display:none;" onchange="cargarFotoFinal(this)" />`;
+  abrirModal('m-final');
+}
+
+function cargarFotoFinal(input){
+  const f=input.files[0];if(!f)return;
+  const r=new FileReader();
+  r.onload=e=>{
+    tmpFinalFoto=e.target.result;
+    document.getElementById('fin-foto-wrap').innerHTML=`
+      <div class="foto-preview"><img src="${tmpFinalFoto}" alt="Comprobante final" />
+        <div style="padding:10px 12px;display:flex;justify-content:space-between;align-items:center;">
+          <span style="font-size:12px;color:var(--ok);font-weight:700;"><i class="ti ti-check" aria-hidden="true"></i> Foto lista</span>
+          <button class="btn-sm btn-ghost" onclick="abrirFinalizacion(${finalizarServicioId})" type="button">Cambiar</button>
+        </div>
+      </div>`;
+    toast('✓ Foto cargada');
+  };
+  r.readAsDataURL(f);
+}
+
+function guardarFinalizacion(){
+  const id=parseInt(document.getElementById('fin-id').value);
+  const v=D.servicios.find(x=>x.id===id);
+  if(!v||!puedeFinalizar(v)){alert('No tienes permiso para finalizar este servicio.');return;}
+  if(v.fecha>hoy()){alert('No puedes finalizar antes del día programado del servicio.');return;}
+  const monto=document.getElementById('fin-monto').value;
+  if(!monto||parseFloat(monto)<=0){alert('Ingresa el importe del servicio.');return;}
+  const reporte=document.getElementById('fin-reporte').value.trim();
+  if(!reporte){alert('Escribe el reporte de cierre.');return;}
+  if(!tmpFinalFoto){alert('Adjunta la foto del comprobante.');return;}
+  v.monto=parseFloat(monto);
+  v.finalizadoPor=sesion.nombre;
+  v.finalizadoEn=new Date().toISOString();
+  v.finalizadoReporte=reporte;
+  v.finalizadoResultado=document.getElementById('fin-resultado').value;
+  v.fotoFinal=tmpFinalFoto;
+  v.estatus='Finalizado';
+  guardarTodo();
+  cerrarModal('m-final');
+  renderInicio();renderServicios();
+  toast('✓ Servicio finalizado');
+}
+
+function guardarReemplazoFoto(input,id){
+  const f = (input.files && input.files[0]); if(!f) return;
+  const v = D.servicios.find(x=>x.id===id);
+  if(!v){toast('Servicio no encontrado');return;}
+  if(!sesion || sesion.msgId!==v.msgId){alert('No tienes permiso para reemplazar la foto.');return;}
+  if((v.fotoFinalReemplazos||0) >= 1){alert('Ya no puedes reemplazar la foto.');return;}
+  const r = new FileReader();
+  r.onload = e => {
+    v.fotoFinal = e.target.result;
+    v.fotoFinalReemplazos = (v.fotoFinalReemplazos||0) + 1;
+    guardarTodo();
+    verDetalle(id);
+    toast('✓ Foto final reemplazada');
+  };
+  r.readAsDataURL(f);
+}
+
+/* ══════════════════════════════════════════
+   MENSAJEROS
+══════════════════════════════════════════ */
+function renderMensajeros(){
+  document.getElementById('msg-hdr-sub').textContent=D.mensajeros.length+' mensajeros';
+  document.getElementById('msg-lista').innerHTML=D.mensajeros.length
+    ?D.mensajeros.map(m=>{
+      const total=D.servicios.filter(v=>v.msgId===m.id&&!v.eliminadoPor).length;
+      const hoyC=D.servicios.filter(v=>v.msgId===m.id&&v.fecha===hoy()&&!v.eliminadoPor).length;
+      const ing=D.servicios.filter(v=>v.msgId===m.id&&!v.eliminadoPor).reduce((a,v)=>a+parseFloat(v.monto||0),0);
+      return`<div class="msg-item" onclick="verDetMsj(${m.id})">
+        <div class="msg-av">${ini(m.nombre)}</div>
+        <div class="msg-info"><div class="msg-name">${m.nombre}</div><div class="msg-sub"><i class="ti ti-phone" style="font-size:11px;" aria-hidden="true"></i> ${m.tel||'—'}${m.zona?' · '+m.zona:''}</div></div>
+        <div class="msg-right">
+          <div class="msg-num">${hoyC} hoy</div>
+          <div class="msg-slbl">${total} total · $${ing.toFixed(0)}</div>
+          ${esAdmin()?`<button class="btn-sm btn-del" style="margin-top:5px;padding:5px 10px;" onclick="event.stopPropagation();elimMsg(${m.id})" aria-label="Eliminar"><i class="ti ti-trash" aria-hidden="true"></i></button>`:''}
+        </div>
+      </div>`;
+    }).join('')
+    :'<div class="empty"><i class="ti ti-user-circle" aria-hidden="true"></i><p>Sin mensajeros registrados.</p></div>';
+}
+
+function verDetMsj(id){
+  const m=D.mensajeros.find(x=>x.id===id);
+  const vs=D.servicios.filter(v=>v.msgId===id&&!v.eliminadoPor).sort((a,b)=>b.id-a.id);
+  const total=vs.reduce((a,v)=>a+parseFloat(v.monto||0),0);
+  document.getElementById('detmsg-body').innerHTML=`
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+      <div style="width:48px;height:48px;border-radius:12px;background:var(--c4);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:700;color:var(--c2);">${ini(m.nombre)}</div>
+      <div><div style="font-size:17px;font-weight:700;">${m.nombre}</div><div style="font-size:12px;color:var(--sub);margin-top:2px;">${m.tel||''}${m.zona?' · '+m.zona:''}</div></div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px;">
+      <div class="stat-card"><div class="sc-num">${vs.length}</div><div class="sc-lbl">Servicios totales</div></div>
+      <div class="stat-card"><div class="sc-num" style="color:var(--ok);">$${total.toFixed(0)}</div><div class="sc-lbl">Total cobrado</div></div>
+    </div>
+    <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Últimos servicios</div>
+    ${vs.slice(0,5).map(v=>srvItem(v)).join('')}
+    ${!vs.length?'<div class="empty"><i class="ti ti-car" aria-hidden="true"></i><p>Sin servicios registrados.</p></div>':''}
+  `;
+  abrirModal('m-detmsg');
+}
+
+function guardarMensajero(){
+  const n=document.getElementById('am-nom').value.trim();
+  if(!n){alert('El nombre es obligatorio.');return;}
+  const tel=document.getElementById('am-tel').value.trim();
+  const zona=document.getElementById('am-zona').value.trim();
+  const nuevo={id:Date.now(),nombre:n,tel,zona};
+  D.mensajeros.push(nuevo);
+
+  // Crear un usuario de acceso para el mensajero automáticamente
+  const baseUser=n.trim().toLowerCase().replace(/[^a-z0-9]+/gi,'');
+  let user=baseUser || `mensajero${nuevo.id}`;
+  let sufix=1;
+  while(D.usuarios.find(u=>u.user===user)){
+    user = `${baseUser}${sufix++}`;
+  }
+  const pin='1234';
+  D.usuarios.push({id:D.nxtUsrId++,nombre:n,user,pass:pin,rol:'mensajero',msgId:nuevo.id});
+
+  guardarTodo();cerrarModal('m-addmsg');renderMensajeros();llenarSels();renderUsuarios();renderLoginUsuarios();
+  ['am-nom','am-tel','am-zona'].forEach(x=>document.getElementById(x).value='');
+  toast('✓ Mensajero registrado. Usuario: '+user+' | PIN: '+pin);
+}
+
+function elimMsg(id){
+  if(!confirm('¿Eliminar mensajero?'))return;
+  D.mensajeros=D.mensajeros.filter(m=>m.id!==id);
+  guardarTodo();renderMensajeros();llenarSels();toast('✓ Eliminado');
+}
+
+/* ══════════════════════════════════════════
+   USUARIOS (solo admin)
+══════════════════════════════════════════ */
+function renderUsuarios(){
+  document.getElementById('usr-hdr-sub').textContent=D.usuarios.length+' usuarios registrados';
+  document.getElementById('usr-lista').innerHTML=D.usuarios.map(u=>`
+    <div class="usr-item">
+      <div class="usr-av">${ini(u.nombre)}</div>
+      <div class="usr-info">
+        <div class="usr-name">${u.nombre}</div>
+        <div class="usr-sub">@${u.user} · <span class="badge ${u.rol==='admin'?'b-ok':'b-ruta'}" style="font-size:10px;padding:1px 7px;">${u.rol==='admin'?'Admin':'Mensajero'}</span>${u.msgId?' · '+msgNom(u.msgId):''}</div>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center;">
+        <button class="btn-sm btn-ghost" onclick="abrirEditUsuario(${u.id})" style="padding:5px 10px;" title="Editar usuario"><i class="ti ti-edit" aria-hidden="true"></i></button>
+        ${u.id===sesion.id
+          ?`<button class="btn-sm btn-ghost" onclick="abrirCambioPin()" style="padding:5px 10px;" title="Cambiar mi PIN"><i class="ti ti-lock-cog" aria-hidden="true"></i></button>`
+          :`<button class="btn-sm btn-del" onclick="elimUsuario(${u.id})" style="padding:5px 10px;" title="Eliminar usuario"><i class="ti ti-trash" aria-hidden="true"></i></button>`
+        }
+      </div>
+    </div>`).join('');
+}
+
+function abrirCambioPin(){
+  ['cp-actual','cp-nuevo','cp-confirmar'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('cp-err').style.display='none';
+  abrirModal('m-cambiopin');
+}
+
+function abrirEditUsuario(id){
+  const u=D.usuarios.find(x=>x.id===id);
+  if(!u)return;
+  document.getElementById('eu-id').value=id;
+  document.getElementById('eu-nom').value=u.nombre;
+  document.getElementById('eu-user').value=u.user;
+  document.getElementById('eu-rol').value=u.rol;
+  document.getElementById('eu-pin').value='';
+  document.getElementById('eu-pin2').value='';
+  document.getElementById('eu-err').style.display='none';
+  // Llenar select de mensajeros
+  const sel=document.getElementById('eu-msgid');
+  sel.innerHTML='<option value="">Sin asociar</option>'+D.mensajeros.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+  sel.value=u.msgId||'';
+  abrirModal('m-editusr');
+}
+
+function guardarEditUsuario(){
+  const id=parseInt(document.getElementById('eu-id').value);
+  const u=D.usuarios.find(x=>x.id===id);
+  if(!u)return;
+  const nom=document.getElementById('eu-nom').value.trim();
+  const user=document.getElementById('eu-user').value.trim().toLowerCase();
+  const rol=document.getElementById('eu-rol').value;
+  let msgId=parseInt(document.getElementById('eu-msgid').value)||null;
+  const pin=document.getElementById('eu-pin').value.replace(/\D/g,'');
+  const pin2=document.getElementById('eu-pin2').value.replace(/\D/g,'');
+  const err=document.getElementById('eu-err');
+  err.style.display='none';
+  if(!nom){err.textContent='El nombre es obligatorio.';err.style.display='block';return;}
+  if(!user){err.textContent='El usuario es obligatorio.';err.style.display='block';return;}
+  // Verificar que el usuario no esté duplicado con otro ID
+  const dup=D.usuarios.find(x=>x.user===user&&x.id!==id);
+  if(dup){err.textContent='Ese nombre de usuario ya existe. Elige otro.';err.style.display='block';return;}
+  // Validar PIN solo si se llenó
+  if(pin||pin2){
+    if(pin.length!==4){err.textContent='El nuevo PIN debe tener exactamente 4 dígitos.';err.style.display='block';return;}
+    if(pin!==pin2){err.textContent='Los PINs no coinciden.';err.style.display='block';return;}
+    u.pass=pin;
+    // Si es el usuario en sesión, actualizar sesión también
+    if(id===sesion.id)sesion.pass=pin;
+  }
+  if(rol==='mensajero'&&!msgId){
+    msgId=crearMensajeroSiFalta(nom);
+  }
+  u.nombre=nom;
+  u.user=user;
+  u.rol=rol;
+  u.msgId=msgId;
+  // Si editamos al usuario en sesión, actualizar datos de sesión
+  if(id===sesion.id){
+    sesion.nombre=nom;
+    sesion.user=user;
+    sesion.rol=rol;
+    document.getElementById('tb-av').textContent=ini(nom);
+    document.getElementById('tb-uname').textContent=nom.split(' ')[0];
+  }
+  guardarTodo();
+  cerrarModal('m-editusr');
+  renderUsuarios();
+  renderLoginUsuarios();
+  toast('✓ Usuario "'+nom+'" actualizado');
+}
+
+function guardarCambioPin(){
+  const actual=document.getElementById('cp-actual').value.replace(/\D/g,'');
+  const nuevo=document.getElementById('cp-nuevo').value.replace(/\D/g,'');
+  const confirmar=document.getElementById('cp-confirmar').value.replace(/\D/g,'');
+  const err=document.getElementById('cp-err');
+  err.style.display='none';
+  if(actual!==sesion.pass){err.textContent='El PIN actual es incorrecto.';err.style.display='block';return;}
+  if(nuevo.length!==4){err.textContent='El nuevo PIN debe tener exactamente 4 dígitos.';err.style.display='block';return;}
+  if(nuevo!==confirmar){err.textContent='Los PINs nuevos no coinciden.';err.style.display='block';return;}
+  if(nuevo===actual){err.textContent='El nuevo PIN debe ser diferente al actual.';err.style.display='block';return;}
+  const u=D.usuarios.find(x=>x.id===sesion.id);
+  if(u){u.pass=nuevo;sesion.pass=nuevo;}
+  guardarTodo();
+  cerrarModal('m-cambiopin');
+  toast('✓ PIN actualizado correctamente');
+}
+
+function guardarUsuario(){
+  const nom=document.getElementById('au-nom').value.trim();
+  const user=document.getElementById('au-user').value.trim().toLowerCase();
+  const pass=document.getElementById('au-pass').value.replace(/\D/g,'').slice(0,4);
+  const rol=document.getElementById('au-rol').value;
+  let msgId=parseInt(document.getElementById('au-msgid').value)||null;
+  if(!nom||!user){alert('Nombre y usuario son obligatorios.');return;}
+  if(pass.length!==4){alert('El PIN debe tener exactamente 4 dígitos numéricos.');return;}
+  if(D.usuarios.find(u=>u.user===user)){alert('Ese nombre de usuario ya existe. Elige otro.');return;}
+  if(rol==='mensajero'&&!msgId){
+    msgId=crearMensajeroSiFalta(nom);
+  }
+  D.usuarios.push({id:D.nxtUsrId++,nombre:nom,user,pass,rol,msgId});
+  guardarTodo();cerrarModal('m-addusr');renderUsuarios();renderLoginUsuarios();
+  ['au-nom','au-user','au-pass'].forEach(x=>document.getElementById(x).value='');
+  toast('✓ Usuario "'+nom+'" creado con PIN');
+}
+
+function elimUsuario(id){
+  if(id===sesion.id){toast('No puedes eliminar tu propio usuario.');return;}
+  if(!confirm('¿Eliminar este usuario?'))return;
+  D.usuarios=D.usuarios.filter(u=>u.id!==id);
+  guardarTodo();renderUsuarios();toast('✓ Usuario eliminado');
+}
+
+/* ══════════════════════════════════════════
+   AUDITORÍA (solo admin)
+══════════════════════════════════════════ */
+function renderAuditoria(){
+  const lista=document.getElementById('audit-lista');
+  if(!D.auditoria.length){
+    lista.innerHTML='<div class="empty"><i class="ti ti-shield-check" aria-hidden="true"></i><p>Sin registros de eliminaciones.<br>Aquí aparecerán los servicios que los mensajeros eliminen.</p></div>';
+    return;
+  }
+  const sorted=[...D.auditoria].sort((a,b)=>b.ts.localeCompare(a.ts));
+  lista.innerHTML=sorted.map(a=>`
+    <div class="audit-item">
+      <div class="audit-banner"><i class="ti ti-alert-triangle" aria-hidden="true"></i>ELIMINADO por ${a.por} · ${fFecha(a.fecha)} a las ${(a.ts||'').slice(11,16)} hrs</div>
+      <div class="audit-info">
+        <div style="font-size:13px;font-weight:700;color:var(--txt);margin-bottom:6px;">${a.folio} — ${a.msgNombre}</div>
+        <div style="margin-bottom:4px;"><span>Fecha del servicio:</span> <strong>${fFecha(a.fecha)} ${a.hora||''}</strong></div>
+        <div style="margin-bottom:4px;"><span>Personas visitadas:</span> <strong>${(a.personas||[]).join(', ')||'—'}</strong></div>
+        <div style="margin-bottom:4px;"><span>Monto cobrado:</span> <strong style="color:var(--ok);">$${parseFloat(a.monto||0).toFixed(2)}</strong></div>
+        ${a.obs?`<div><span>Observaciones:</span> <strong>${a.obs}</strong></div>`:''}
+      </div>
+    </div>`).join('');
+  // apagar dot
+  document.getElementById('audit-dot').classList.remove('show');
+}
+
+function actualizarDotAuditoria(){
+  // Mostrar punto rojo si hay auditorías nuevas
+  const hay=D.auditoria&&D.auditoria.length>0;
+  const dot=document.getElementById('audit-dot');
+  if(dot)dot.classList.toggle('show',hay);
+}
+
+/* ══════════════════════════════════════════
+   REPORTES
+══════════════════════════════════════════ */
+function renderRptSel(){
+  llenarSels();
+  // Si eres mensajero, auto-selecciona tu propio reporte
+  if(!esAdmin()&&sesion.msgId){
+    document.getElementById('rpt-msg').value=sesion.msgId;
+    document.getElementById('rpt-sub').textContent='Mi reporte de servicios';
+  }else{
+    document.getElementById('rpt-sub').textContent='Servicios por mensajero';
+  }
+  if(!document.getElementById('rpt-desde').value)document.getElementById('rpt-desde').value=hoy().slice(0,7)+'-01';
+  if(!document.getElementById('rpt-hasta').value)document.getElementById('rpt-hasta').value=hoy();
+  renderReporte();
+}
+
+function renderReporte(){
+  const mid=parseInt(document.getElementById('rpt-msg').value)||0;
+  const desde=document.getElementById('rpt-desde').value;
+  const hasta=document.getElementById('rpt-hasta').value;
+  const cont=document.getElementById('rpt-cuerpo');
+  
+  // Validación: si no hay messenger seleccionado y es admin, mostrar mensaje
+  if(!mid){
+    if(esAdmin()){
+      cont.innerHTML='<div class="empty"><i class="ti ti-chart-bar" aria-hidden="true"></i><p>Selecciona un mensajero para ver su reporte.</p></div>';
+    }
+    return;
+  }
+  
+  const m=D.mensajeros.find(x=>x.id===mid);
+  let vs=D.servicios.filter(v=>v.msgId===mid&&!v.eliminadoPor).sort((a,b)=>a.fecha.localeCompare(b.fecha)||(a.hora||'').localeCompare(b.hora||''));
+  if(desde)vs=vs.filter(v=>v.fecha>=desde);
+  if(hasta)vs=vs.filter(v=>v.fecha<=hasta);
+  if(!vs.length){cont.innerHTML='<div class="empty"><i class="ti ti-inbox" aria-hidden="true"></i><p>Sin servicios en el período seleccionado.</p></div>';return;}
+  const total=vs.reduce((a,v)=>a+parseFloat(v.monto||0),0);
+  const totVis=vs.reduce((a,v)=>a+(v.personas||[]).length,0);
+  cont.innerHTML=`
+    <div class="rpt-hdr">
+      <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+        <div style="width:44px;height:44px;border-radius:11px;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;color:var(--c1);">${ini(m.nombre)}</div>
+        <div><div style="font-size:16px;font-weight:700;color:#fff;">${m.nombre}</div><div style="font-size:11px;color:rgba(255,255,255,.45);margin-top:2px;">${m.zona||'Mensajero'} · ${m.tel||''}</div></div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;">
+        <div style="background:rgba(255,255,255,.09);border-radius:9px;padding:10px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#fff;">${vs.length}</div><div style="font-size:10px;color:rgba(255,255,255,.4);">Servicios</div></div>
+        <div style="background:rgba(255,255,255,.09);border-radius:9px;padding:10px;text-align:center;"><div style="font-size:22px;font-weight:700;color:#fff;">${totVis}</div><div style="font-size:10px;color:rgba(255,255,255,.4);">Visitas</div></div>
+        <div style="background:rgba(200,169,74,.2);border-radius:9px;padding:10px;text-align:center;"><div style="font-size:22px;font-weight:700;color:var(--acc);">$${total.toFixed(0)}</div><div style="font-size:10px;color:rgba(200,169,74,.5);">Total</div></div>
+      </div>
+    </div>
+    ${vs.map(v=>{
+      const bc=estadoServicio(v)==='Finalizado'?'b-fin':'b-ruta';
+      const hF=v.foto&&v.foto.length>10;
+      return`<div class="rpt-srv">
+        <div class="rv-top">
+          <div><div class="rv-folio">${v.folio}</div><span class="badge ${bc}" style="margin-top:4px;display:inline-block;">${estadoServicio(v)}</span></div>
+          <div style="text-align:right;"><div style="font-size:14px;font-weight:700;">${fFecha(v.fecha)}</div><div style="font-size:12px;color:var(--sub);margin-top:2px;">${v.hora||'—'} hrs</div></div>
+        </div>
+        <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:7px;">Lugares / personas (${(v.personas||[]).length})</div>
+        <div class="rv-personas">${(v.personas||[]).map(p=>`<div class="rv-persona"><i class="ti ti-user-check" aria-hidden="true"></i>${p}</div>`).join('')}</div>
+        ${v.obs?`<div style="background:#F8F4E8;border-radius:9px;padding:9px 12px;margin-top:8px;font-size:13px;color:var(--warn);"><i class="ti ti-note" style="font-size:13px;" aria-hidden="true"></i> <strong>Obs:</strong> ${v.obs}</div>`:''}
+        ${hF?`<div class="rv-foto" onclick="verFoto(${v.id})"><img src="${v.foto}" alt="Evidencia" /><div style="padding:7px 12px;font-size:12px;color:var(--c3);font-weight:600;display:flex;align-items:center;gap:5px;"><i class="ti ti-zoom-in" aria-hidden="true"></i> Ver evidencia</div></div>`:''}
+        <div class="rv-monto"><span class="rv-monto-lbl"><i class="ti ti-cash" aria-hidden="true"></i> Monto cobrado</span><span class="rv-monto-val">$${parseFloat(v.monto||0).toFixed(2)}</span></div>
+      </div>`;
+    }).join('')}
+    <div style="background:var(--c1);border-radius:12px;padding:16px;display:flex;justify-content:space-between;align-items:center;margin-bottom:20px;">
+      <div><div style="font-size:11px;color:rgba(255,255,255,.5);font-weight:700;text-transform:uppercase;letter-spacing:.5px;">Total del período</div>
+      <div style="font-size:12px;color:rgba(255,255,255,.35);margin-top:3px;">${vs.length} servicio(s) · ${totVis} visita(s)</div></div>
+      <div style="font-size:24px;font-weight:700;color:var(--acc);">$${total.toFixed(2)}</div>
+    </div>`;
+}
+
+/* ══════════════════════════════════════════
+   LLENAR SELECTS
+══════════════════════════════════════════ */
+function llenarSels(){
+  const base=opcionesMensajeros().map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+  const ns=document.getElementById('ns-msg');if(ns)ns.innerHTML='<option value="">Seleccionar mensajero...</option>'+base;
+  const rpt=document.getElementById('rpt-msg');if(rpt)rpt.innerHTML='<option value="">— Seleccionar mensajero —</option>'+base;
+  const au=document.getElementById('au-msgid');if(au)au.innerHTML='<option value="">Sin asociar</option>'+base;
+}
+
+/* ══════════════════════════════════════════
+   PERSISTENCIA — guardar al cambiar pestaña
+══════════════════════════════════════════ */
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')guardarTodo();});
+window.addEventListener('pagehide',()=>guardarTodo());
+window.addEventListener('beforeunload',()=>guardarTodo());
+
+/* ══════════════════════════════════════════
+   CERRAR MODALES tocando fondo
+══════════════════════════════════════════ */
+document.querySelectorAll('.modal-bg').forEach(mb=>{
+  mb.addEventListener('click',e=>{if(e.target===mb)mb.classList.remove('open');});
+});
+
+/* ══════════════════════════════════════════
+   ENTER en campo persona
+══════════════════════════════════════════ */
+document.addEventListener('keydown',e=>{
+  if(e.key==='Enter'){
+    const f=document.getElementById('ns-pnom');
+    if(f&&document.activeElement===f&&document.getElementById('m-srv').classList.contains('open')){e.preventDefault();addPTmp();}
+    const ef=document.getElementById('ed-pnom');
+    if(ef&&document.activeElement===ef&&document.getElementById('m-edit').classList.contains('open')){e.preventDefault();addPEdit();}
+  }
+});
+
+/* ══════════════════════════════════════════
+   EDITAR SERVICIO
+══════════════════════════════════════════ */
+let editPersonas=[];
+
+function abrirEdicion(id){
+  const v=D.servicios.find(x=>x.id===id);
+  if(!v)return;
+  editPersonas=[...(v.personas||[])];
+  document.getElementById('ed-id').value=id;
+  document.getElementById('ed-fecha').value=v.fecha||'';
+  document.getElementById('ed-hora').value=v.hora||'';
+  document.getElementById('ed-monto').value=v.monto||'';
+  document.getElementById('ed-est').value=v.finalizadoPor?'Finalizado':(v.estatus||'Programado');
+  document.getElementById('ed-obs').value=v.obs||'';
+  // Selector mensajero solo para admin
+  const fgMsg=document.getElementById('ed-fg-msg');
+  if(esAdmin()){
+    fgMsg.style.display='flex';
+    const sel=document.getElementById('ed-msg');
+    sel.innerHTML=D.mensajeros.map(m=>`<option value="${m.id}">${m.nombre}</option>`).join('');
+    sel.value=v.msgId;
+  } else {
+    fgMsg.style.display='none';
+  }
+  renderEditPersonas();
+  abrirModal('m-edit');
+}
+
+function addPEdit(){
+  const n=document.getElementById('ed-pnom').value.trim();
+  if(!n)return;
+  if(editPersonas.includes(n)){toast('Ya está en la lista');return;}
+  editPersonas.push(n);
+  document.getElementById('ed-pnom').value='';
+  renderEditPersonas();
+}
+
+function quitarPEdit(i){editPersonas.splice(i,1);renderEditPersonas();}
+
+function renderEditPersonas(){
+  const div=document.getElementById('ed-pers-list');
+  div.innerHTML=editPersonas.length
+    ?editPersonas.map((p,i)=>`<div class="p-chip"><div style="display:flex;align-items:center;gap:7px;font-size:13px;color:var(--c2);font-weight:600;"><i class="ti ti-user-check" style="font-size:12px;" aria-hidden="true"></i>${p}</div><button class="p-chip-del" onclick="quitarPEdit(${i})" type="button">×</button></div>`).join('')
+    :'<div style="font-size:12px;color:var(--sub);padding:4px 0;">Agrega personas con el botón +</div>';
+}
+
+function guardarEdicion(){
+  const id=parseInt(document.getElementById('ed-id').value);
+  const v=D.servicios.find(x=>x.id===id);
+  if(!v)return;
+  if(!editPersonas.length){alert('Agrega al menos una persona visitada.');return;}
+  const monto=document.getElementById('ed-monto').value;
+  if(!monto||parseFloat(monto)<=0){alert('Ingresa el monto cobrado.');return;}
+  if(esAdmin())v.msgId=parseInt(document.getElementById('ed-msg').value)||v.msgId;
+  v.fecha=document.getElementById('ed-fecha').value;
+  v.hora=document.getElementById('ed-hora').value;
+  v.monto=parseFloat(monto);
+  v.estatus=v.finalizadoPor?'Finalizado':document.getElementById('ed-est').value;
+  v.obs=document.getElementById('ed-obs').value.trim();
+  v.personas=[...editPersonas];
+  v.editadoPor=sesion.nombre;
+  v.editadoEn=hoy();
+  guardarTodo();
+  cerrarModal('m-edit');
+  renderInicio();renderServicios();
+  toast('✓ Servicio actualizado');
+}
+
+/* ══════════════════════════════════════════
+   INICIAR APP
+══════════════════════════════════════════ */
+async function iniciarApp(){
+  await abrirDB().catch(()=>{});
+  await cargarDatos();
+  if(!D.usuarios)D.usuarios=[];
+  // Asegurar que el admin siempre tenga PIN 1234 y rol correcto
+  const adminExist=D.usuarios.find(u=>u.rol==='admin');
+  if(!adminExist){
+    D.usuarios.unshift({id:1,nombre:'Administrador',user:'admin',pass:'1234',rol:'admin',msgId:null});
+  } else if(adminExist.pass==='admin123'){
+    // Corregir PIN viejo si quedó guardado
+    adminExist.pass='1234';
+  }
+  if(!D.auditoria)D.auditoria=[];
+  if(!D.reportesRecibidos)D.reportesRecibidos=[];
+  if(!D.servicios)D.servicios=[];
+  if(normalizarMensajerosDesdeUsuarios())guardarTodo();
+  renderLoginUsuarios();
+}
+
+/* ══════════════════════════════════════════
+   EXPORTAR REPORTE (mensajero → admin)
+══════════════════════════════════════════ */
+function exportarReporte(){
+  const mid=parseInt(document.getElementById('rpt-msg').value)||0;
+  const desde=document.getElementById('rpt-desde').value;
+  const hasta=document.getElementById('rpt-hasta').value;
+  // Si no hay mensajero seleccionado, exportar todos los propios
+  let svcs=serviciosVisibles().filter(v=>!v.eliminadoPor);
+  let mensajeroNombre='Todos mis servicios';
+  if(mid){
+    svcs=svcs.filter(v=>v.msgId===mid);
+    const m=D.mensajeros.find(x=>x.id===mid);
+    mensajeroNombre=m?m.nombre:'Mensajero';
+  }
+  if(desde) svcs=svcs.filter(v=>v.fecha>=desde);
+  if(hasta) svcs=svcs.filter(v=>v.fecha<=hasta);
+  if(!svcs.length){toast('Sin servicios para exportar con los filtros seleccionados.');return;}
+
+  const paquete={
+    _tipo:'zavalaexpress_reporte',
+    _version:1,
+    _exportadoPor:sesion.nombre,
+    _exportadoEn:new Date().toISOString(),
+    _desde:desde||'',
+    _hasta:hasta||'',
+    mensajeroNombre,
+    mensajeros:D.mensajeros,
+    servicios:svcs
+  };
+
+  const blob=new Blob([JSON.stringify(paquete,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');
+  const fecha=new Date().toISOString().slice(0,10);
+  a.href=url;
+  a.download=`ZX_Reporte_${mensajeroNombre.replace(/\s+/g,'_')}_${fecha}.zxr`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  toast('✓ Reporte exportado — compártelo por WhatsApp');
+}
+
+/* ══════════════════════════════════════════
+   IMPORTAR REPORTE (admin recibe del mensajero)
+══════════════════════════════════════════ */
+function importarReporte(){
+  document.getElementById('import-input').click();
+}
+
+function procesarImportacion(input){
+  const file=input.files[0];
+  if(!file){return;}
+  const reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      const paquete=JSON.parse(ev.target.result);
+      if(paquete._tipo!=='zavalaexpress_reporte'){
+        alert('Archivo no válido. Solo se aceptan archivos .zxr exportados desde ZAVALAEXPRESS.');
+        return;
+      }
+      // Guardar en la lista de reportes recibidos (sin mezclar con datos propios)
+      if(!D.reportesRecibidos) D.reportesRecibidos=[];
+      // Evitar duplicados por exportadoEn
+      const existe=D.reportesRecibidos.find(r=>r._exportadoEn===paquete._exportadoEn&&r._exportadoPor===paquete._exportadoPor);
+      if(existe){
+        if(!confirm('Ya tienes un reporte de '+paquete._exportadoPor+' del mismo momento. ¿Reemplazarlo?'))return;
+        D.reportesRecibidos=D.reportesRecibidos.filter(r=>!(r._exportadoEn===paquete._exportadoEn&&r._exportadoPor===paquete._exportadoPor));
+      }
+      D.reportesRecibidos.push(paquete);
+      guardarTodo();
+      // Dot de notificación
+      const dot=document.getElementById('compartidos-dot');
+      if(dot) dot.classList.add('show');
+      renderCompartidos();
+      toast('✓ Reporte de '+paquete._exportadoPor+' importado correctamente');
+      // Ir a la pantalla de recibidos
+      const btn=document.querySelector('[onclick*="compartidos"]');
+      if(btn) irA('compartidos',btn);
+    }catch(e){
+      alert('Error al leer el archivo. Asegúrate de que es un archivo .zxr válido.');
+    }
+  };
+  reader.readAsText(file);
+  input.value='';
+}
+
+/* ══════════════════════════════════════════
+   RENDER REPORTES RECIBIDOS
+══════════════════════════════════════════ */
+function renderCompartidos(){
+  const lista=document.getElementById('compartidos-lista');
+  const dot=document.getElementById('compartidos-dot');
+  if(!D.reportesRecibidos||!D.reportesRecibidos.length){
+    lista.innerHTML=`<div class="empty"><i class="ti ti-inbox" aria-hidden="true"></i><p>Aún no has recibido reportes.<br>Pide a tus mensajeros que exporten su reporte desde la sección <strong>Reportes → Exportar</strong>.</p></div>`;
+    if(dot) dot.classList.remove('show');
+    return;
+  }
+  if(dot) dot.classList.remove('show');
+  const sorted=[...D.reportesRecibidos].sort((a,b)=>b._exportadoEn.localeCompare(a._exportadoEn));
+  lista.innerHTML=sorted.map((r,idx)=>{
+    const total=r.servicios.reduce((a,v)=>a+parseFloat(v.monto||0),0);
+    const totVis=r.servicios.reduce((a,v)=>a+(v.personas||[]).length,0);
+    const fExp=r._exportadoEn?new Date(r._exportadoEn).toLocaleDateString('es-MX',{day:'2-digit',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}):'—';
+    const periodo=[r._desde?`Desde: ${fFecha(r._desde)}`:'',r._hasta?`Hasta: ${fFecha(r._hasta)}`:''].filter(Boolean).join(' · ')||'Todos los servicios';
+    return`<div class="rpt-srv" style="margin-bottom:12px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:10px;">
+        <div>
+          <div style="font-size:14px;font-weight:700;color:var(--txt);">${r._exportadoPor}</div>
+          <div style="font-size:11px;color:var(--sub);margin-top:2px;">${r.mensajeroNombre}</div>
+          <div style="font-size:11px;color:var(--sub);">${periodo}</div>
+        </div>
+        <div style="text-align:right;">
+          <div style="font-size:11px;color:var(--sub);">Recibido</div>
+          <div style="font-size:12px;font-weight:600;color:var(--txt);">${fExp}</div>
+          <button class="btn-sm btn-del" onclick="eliminarReporteRecibido(${idx})" style="margin-top:5px;padding:4px 8px;"><i class="ti ti-trash" aria-hidden="true"></i></button>
+        </div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;margin-bottom:12px;">
+        <div style="background:var(--c4);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:var(--txt);">${r.servicios.length}</div>
+          <div style="font-size:10px;color:var(--sub);">Servicios</div>
+        </div>
+        <div style="background:var(--c4);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:var(--txt);">${totVis}</div>
+          <div style="font-size:10px;color:var(--sub);">Visitas</div>
+        </div>
+        <div style="background:var(--okbg);border-radius:8px;padding:8px;text-align:center;">
+          <div style="font-size:18px;font-weight:700;color:var(--ok);">$${total.toFixed(0)}</div>
+          <div style="font-size:10px;color:var(--ok);">Total</div>
+        </div>
+      </div>
+      <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">Detalle de servicios</div>
+      ${r.servicios.map(v=>{
+        const mNom=r.mensajeros?r.mensajeros.find(m=>m.id===v.msgId)?.nombre||'—':'—';
+        const bc=estadoServicio(v)==='Finalizado'?'b-fin':'b-ruta';
+        return`<div style="padding:10px 0;border-bottom:.5px solid var(--brd);">
+          <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:4px;">
+            <div>
+              <span style="font-size:11px;font-weight:700;color:var(--c3);">${v.folio}</span>
+              <span class="badge ${bc}" style="margin-left:6px;">${v.estatus}</span>
+            </div>
+            <div style="text-align:right;font-size:11px;color:var(--sub);">${fFecha(v.fecha)} ${v.hora||''}</div>
+          </div>
+          <div style="font-size:12px;color:var(--txt);font-weight:600;margin-bottom:3px;"><i class="ti ti-car" style="font-size:12px;" aria-hidden="true"></i> ${mNom}</div>
+          <div style="font-size:11px;color:var(--sub);margin-bottom:4px;"><i class="ti ti-users" style="font-size:11px;" aria-hidden="true"></i> ${(v.personas||[]).join(', ')||'Sin personas'}</div>
+          ${v.obs?`<div style="font-size:11px;color:var(--warn);"><i class="ti ti-note" style="font-size:11px;" aria-hidden="true"></i> ${v.obs}</div>`:''}
+          <div style="font-size:14px;font-weight:700;color:var(--ok);margin-top:4px;">$${parseFloat(v.monto||0).toFixed(2)}</div>
+        </div>`;
+      }).join('')}
+      <div style="background:var(--c1);border-radius:8px;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+        <div style="font-size:11px;color:rgba(255,255,255,.5);">${r.servicios.length} servicio(s) · ${totVis} visita(s)</div>
+        <div style="font-size:18px;font-weight:700;color:var(--acc);">$${total.toFixed(2)}</div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function eliminarReporteRecibido(idx){
+  if(!confirm('¿Eliminar este reporte recibido?'))return;
+  const sorted=[...D.reportesRecibidos].sort((a,b)=>b._exportadoEn.localeCompare(a._exportadoEn));
+  const target=sorted[idx];
+  D.reportesRecibidos=D.reportesRecibidos.filter(r=>!(r._exportadoEn===target._exportadoEn&&r._exportadoPor===target._exportadoPor));
+  guardarTodo();
+  renderCompartidos();
+  toast('✓ Reporte eliminado');
+}
+
+iniciarApp();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>

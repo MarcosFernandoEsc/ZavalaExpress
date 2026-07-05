@@ -610,7 +610,7 @@ function resolveAuthToken(req) {
 async function requireAuth(req, res, next) {
   const token = resolveAuthToken(req);
   if (!token) {
-    const isExpectedPublicProbe = req.method === 'GET' && req.path === '/api/zavala/state';
+    const isExpectedPublicProbe = req.path === '/api/zavala/state';
     if (!isExpectedPublicProbe) {
       console.log('Unauthorized request: missing Bearer header or token query', {
         method: req.method,
