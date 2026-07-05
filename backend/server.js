@@ -716,6 +716,18 @@ function writeJsonBackup(state) {
 async function loadState() {
   await ensureStorage();
 
+  const pick = (row, ...keys) => {
+    for (const key of keys) {
+      if (row[key] !== undefined) return row[key];
+    }
+    return null;
+  };
+  const toNullableNumber = (value) => {
+    if (value === null || value === undefined || value === '') return null;
+    const num = Number(value);
+    return Number.isFinite(num) ? num : null;
+  };
+
   const usuarios = await all('SELECT * FROM usuarios');
   const mensajeros = await all('SELECT * FROM mensajeros');
   const serviciosRows = await all('SELECT * FROM servicios');
@@ -728,10 +740,10 @@ async function loadState() {
     usuarios: usuarios.map((row) => ({
       id: Number(row.id),
       nombre: row.nombre,
-      user: row.username,
+      user: pick(row, 'username', 'user') || '',
       pass: row.pass,
       rol: row.rol,
-      msgId: row.msgId === null ? null : Number(row.msgId),
+      msgId: toNullableNumber(pick(row, 'msgId', 'msgid')),
     })),
     mensajeros: mensajeros.map((row) => ({
       id: Number(row.id),
@@ -742,25 +754,25 @@ async function loadState() {
     servicios: serviciosRows.map((row) => ({
       id: Number(row.id),
       folio: row.folio,
-      msgId: row.msgId === null ? null : Number(row.msgId),
+      msgId: toNullableNumber(pick(row, 'msgId', 'msgid')),
       fecha: row.fecha,
       hora: row.hora,
       monto: row.monto === null ? 0 : Number(row.monto),
       estatus: row.estatus,
       obs: row.obs,
       foto: row.foto,
-      creadoPor: row.creadoPor,
-      creadoEn: row.creadoEn,
-      finalizadoPor: row.finalizadoPor,
-      finalizadoEn: row.finalizadoEn,
-      finalizadoReporte: row.finalizadoReporte,
-      finalizadoResultado: row.finalizadoResultado,
-      fotoFinal: row.fotoFinal,
-      fotoFinalReemplazos: row.fotoFinalReemplazos === null ? 0 : Number(row.fotoFinalReemplazos),
-      eliminadoPor: row.eliminadoPor,
-      eliminadoEn: row.eliminadoEn,
-      editadoPor: row.editadoPor,
-      editadoEn: row.editadoEn,
+      creadoPor: pick(row, 'creadoPor', 'creadopor') || '',
+      creadoEn: pick(row, 'creadoEn', 'creadoen') || '',
+      finalizadoPor: pick(row, 'finalizadoPor', 'finalizadopor') || '',
+      finalizadoEn: pick(row, 'finalizadoEn', 'finalizadoen') || '',
+      finalizadoReporte: pick(row, 'finalizadoReporte', 'finalizadoreporte') || '',
+      finalizadoResultado: pick(row, 'finalizadoResultado', 'finalizadoresultado') || '',
+      fotoFinal: pick(row, 'fotoFinal', 'fotofinal') || '',
+      fotoFinalReemplazos: Number(toNullableNumber(pick(row, 'fotoFinalReemplazos', 'fotofinalreemplazos')) || 0),
+      eliminadoPor: pick(row, 'eliminadoPor', 'eliminadopor') || '',
+      eliminadoEn: pick(row, 'eliminadoEn', 'eliminadoen') || '',
+      editadoPor: pick(row, 'editadoPor', 'editadopor') || '',
+      editadoEn: pick(row, 'editadoEn', 'editadoen') || '',
       personas: row.personas ? JSON.parse(row.personas) : [],
     })),
     auditoria: auditoriaRows.map((row) => ({
@@ -768,13 +780,13 @@ async function loadState() {
       por: row.por,
       rol: row.rol,
       folio: row.folio,
-      msgNombre: row.msgNombre,
+      msgNombre: pick(row, 'msgNombre', 'msgnombre') || '',
       fecha: row.fecha,
       hora: row.hora,
       personas: row.personas ? JSON.parse(row.personas) : [],
       monto: row.monto === null ? 0 : Number(row.monto),
       obs: row.obs,
-      srvId: row.srvId === null ? null : Number(row.srvId),
+      srvId: toNullableNumber(pick(row, 'srvId', 'srvid')),
     })),
     reportesRecibidos: reportesRows.map((row) => {
       try {
