@@ -79,13 +79,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
 .tb-logo i{font-size:17px;color:var(--c1);}
 .tb-name{font-size:15px;font-weight:800;color:#fff;}
 .tb-name span{color:var(--acc);}
-.tb-right{display:flex;align-items:center;gap:8px;}
-.tb-user{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border-radius:20px;padding:5px 12px 5px 6px;}
+.tb-right{display:flex;align-items:center;gap:6px;min-width:0;flex:1;justify-content:flex-end;}
+.tb-user{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.1);border-radius:20px;padding:5px 10px 5px 6px;min-width:0;max-width:44vw;}
 .tb-av{width:24px;height:24px;border-radius:50%;background:var(--acc);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;color:var(--c1);}
-.tb-uname{font-size:12px;color:rgba(255,255,255,.85);font-weight:600;}
-.tb-logout{background:rgba(255,255,255,.12);border:none;color:rgba(255,255,255,.7);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-family:inherit;display:flex;align-items:center;gap:4px;}
+.tb-uname{font-size:12px;color:rgba(255,255,255,.85);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block;max-width:30vw;}
+.tb-logout{background:rgba(255,255,255,.12);border:none;color:rgba(255,255,255,.7);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:12px;font-family:inherit;display:flex;align-items:center;gap:4px;flex-shrink:0;min-width:36px;justify-content:center;}
 .tb-logout:active{background:rgba(255,0,0,.2);}
-.tb-rol{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;}
+.tb-rol{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700;flex-shrink:0;}
 .rol-admin{background:var(--acc);color:var(--c1);}
 .rol-msg{background:rgba(255,255,255,.15);color:#fff;}
 
@@ -291,40 +291,17 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
   <div class="ls-brand">ZAVALA<span>EXPRESS</span></div>
   <div class="ls-sub">Sistema de Mensajería</div>
   <div class="ls-card">
-    <!-- Paso 1: elegir usuario -->
-    <div id="pin-paso1">
-      <h2 style="margin-bottom:14px;">¿Quién eres?</h2>
-      <div id="pin-usuarios-list" style="display:flex;flex-direction:column;gap:8px;max-height:240px;overflow-y:auto;"></div>
+    <h2>Iniciar sesión</h2>
+    <div class="fg">
+      <label>Usuario</label>
+      <input type="text" id="li-user" placeholder="Ej. admin" autocomplete="username" />
     </div>
-    <!-- Paso 2: ingresar PIN -->
-    <div id="pin-paso2" style="display:none;text-align:center;">
-      <div id="pin-avatar" style="width:52px;height:52px;border-radius:14px;background:var(--c4);display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;color:var(--c2);margin:0 auto 8px;"></div>
-      <div id="pin-nombre-lbl" style="font-size:15px;font-weight:700;color:var(--c1);margin-bottom:4px;"></div>
-      <div style="font-size:11px;color:var(--sub);margin-bottom:18px;">Ingresa tu PIN de 4 dígitos</div>
-      <!-- Puntos indicadores -->
-      <div style="display:flex;justify-content:center;gap:12px;margin-bottom:20px;">
-        <div class="pin-dot" id="pd0"></div>
-        <div class="pin-dot" id="pd1"></div>
-        <div class="pin-dot" id="pd2"></div>
-        <div class="pin-dot" id="pd3"></div>
-      </div>
-      <!-- Teclado numérico -->
-      <div class="pin-pad">
-        <button class="pp-btn" onclick="pinTecla('1')">1</button>
-        <button class="pp-btn" onclick="pinTecla('2')">2</button>
-        <button class="pp-btn" onclick="pinTecla('3')">3</button>
-        <button class="pp-btn" onclick="pinTecla('4')">4</button>
-        <button class="pp-btn" onclick="pinTecla('5')">5</button>
-        <button class="pp-btn" onclick="pinTecla('6')">6</button>
-        <button class="pp-btn" onclick="pinTecla('7')">7</button>
-        <button class="pp-btn" onclick="pinTecla('8')">8</button>
-        <button class="pp-btn" onclick="pinTecla('9')">9</button>
-        <button class="pp-btn pp-back" onclick="pinVolver()"><i class="ti ti-arrow-left" aria-hidden="true"></i></button>
-        <button class="pp-btn" onclick="pinTecla('0')">0</button>
-        <button class="pp-btn pp-del" onclick="pinBorrar()"><i class="ti ti-backspace" aria-hidden="true"></i></button>
-      </div>
-      <div class="ls-err" id="li-err" style="margin-top:10px;">PIN incorrecto</div>
+    <div class="fg">
+      <label>Contraseña / PIN</label>
+      <input type="password" id="li-pass" placeholder="Tu contraseña" autocomplete="current-password" onkeydown="if(event.key==='Enter'){submitLogin();}" />
     </div>
+    <button class="btn-login" onclick="submitLogin()"><i class="ti ti-login" aria-hidden="true"></i> Entrar</button>
+    <div class="ls-err" id="li-err" style="margin-top:10px;">Credenciales incorrectas</div>
   </div>
 </div>
 
@@ -705,6 +682,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
 const DB_NAME='ZavalaExpressDB2', DB_VER=2, STORE='datos';
 const LOCAL_STATE_KEY='ze_v5';
 const AUTH_TOKEN_KEY='ze_token';
+const SESSION_USER_KEY='ze_session_user';
 const APP_CONFIG={
   apiBaseUrl:
     window.__ZAVALA_CONFIG__?.apiBaseUrl ||
@@ -713,6 +691,27 @@ const APP_CONFIG={
 let authToken=localStorage.getItem(AUTH_TOKEN_KEY) || null;
 let serverMode=Boolean(APP_CONFIG.apiBaseUrl);
 let db=null;
+
+function saveSessionUser(user){
+  if(!user){
+    localStorage.removeItem(SESSION_USER_KEY);
+    return;
+  }
+  const payload={
+    id:Number(user.id),
+    user:user.user||user.username||'',
+    rol:user.rol||'mensajero'
+  };
+  localStorage.setItem(SESSION_USER_KEY, JSON.stringify(payload));
+}
+
+function readSessionUser(){
+  try{
+    const raw=localStorage.getItem(SESSION_USER_KEY);
+    if(!raw)return null;
+    return JSON.parse(raw);
+  }catch{return null;}
+}
 
 function saveAuthToken(token){
   const normalized = typeof token === 'string' ? token.trim() : token;
@@ -1096,86 +1095,50 @@ function opcionesMensajeros(){
 }
 
 /* ══════════════════════════════════════════
-   LOGIN PIN
+   LOGIN
 ══════════════════════════════════════════ */
-let pinBuffer='', pinUserSel=null;
-
-function renderLoginUsuarios(){
-  const lista=document.getElementById('pin-usuarios-list');
-  if(!lista)return;
-  lista.innerHTML=D.usuarios.map(u=>`
-    <button class="pin-usr-btn" onclick="seleccionarUsuario(${u.id})">
-      <div class="pin-usr-av">${ini(u.nombre)}</div>
-      <div>
-        <div class="pin-usr-name">${u.nombre}</div>
-        <div class="pin-usr-rol">${u.rol==='admin'?'Administrador':'Mensajero'}</div>
-      </div>
-      <i class="ti ti-chevron-right pin-usr-arrow" aria-hidden="true"></i>
-    </button>`).join('');
-}
-
-function seleccionarUsuario(id){
-  pinUserSel=D.usuarios.find(u=>u.id==id);
-  if(!pinUserSel)return;
-  pinBuffer='';
-  document.getElementById('pin-paso1').style.display='none';
-  document.getElementById('pin-paso2').style.display='block';
-  document.getElementById('pin-avatar').textContent=ini(pinUserSel.nombre);
-  document.getElementById('pin-nombre-lbl').textContent=pinUserSel.nombre;
-  document.getElementById('li-err').style.display='none';
-  actualizarPuntos();
-}
-
-function pinTecla(d){
-  if(pinBuffer.length>=4)return;
-  pinBuffer+=d;
-  actualizarPuntos();
-  if(pinBuffer.length===4)setTimeout(verificarPIN,150);
-}
-
-function pinBorrar(){
-  pinBuffer=pinBuffer.slice(0,-1);
-  actualizarPuntos();
-}
-
-function pinVolver(){
-  pinBuffer='';
-  pinUserSel=null;
-  document.getElementById('pin-paso1').style.display='block';
-  document.getElementById('pin-paso2').style.display='none';
-  document.getElementById('li-err').style.display='none';
-  actualizarPuntos();
-}
-
-function actualizarPuntos(){
-  for(let i=0;i<4;i++){
-    const d=document.getElementById('pd'+i);
-    if(d){d.className='pin-dot'+(i<pinBuffer.length?' fill':'');}
+function renderLoginForm(){
+  const err=document.getElementById('li-err');
+  if(err){
+    err.textContent='Credenciales incorrectas';
+    err.style.display='none';
   }
 }
 
-async function verificarPIN(){
-  if(serverMode){
-    await iniciarLoginRemoto(pinUserSel?.user || pinUserSel?.username || pinUserSel?.usuario, pinBuffer);
+async function submitLogin(){
+  const user=(document.getElementById('li-user')?.value||'').trim();
+  const pass=(document.getElementById('li-pass')?.value||'').trim();
+  if(!user||!pass){
+    mostrarErrorLogin('Ingresa usuario y contraseña');
     return;
   }
-  if(pinUserSel.pass===pinBuffer){
-    entrarConUsuario(pinUserSel);
-  } else {
-    // Animación error
-    for(let i=0;i<4;i++){const d=document.getElementById('pd'+i);if(d)d.className='pin-dot err';}
-    document.getElementById('li-err').style.display='block';
-    setTimeout(()=>{
-      pinBuffer='';
-      actualizarPuntos();
-      document.getElementById('li-err').style.display='none';
-    },900);
+  if(serverMode){
+    await iniciarLoginRemoto(user, pass);
+    return;
   }
+  const found=(D.usuarios||[]).find((u)=>String(u.user||u.username||'').toLowerCase()===user.toLowerCase());
+  if(found && String(found.pass||'')===pass){
+    entrarConUsuario(found);
+  } else {
+    mostrarErrorLogin('Usuario o contraseña incorrectos');
+  }
+}
+
+async function intentarReanudarSesion(){
+  if(!authToken)return false;
+  const saved=readSessionUser();
+  if(!saved)return false;
+  const found=(D.usuarios||[]).find((u)=>Number(u.id)===Number(saved.id)||String(u.user||u.username||'')===String(saved.user||''));
+  if(found){
+    entrarConUsuario(found);
+    return true;
+  }
+  return false;
 }
 
 async function iniciarLoginRemoto(user, pin){
   if(!serverMode) return;
-  const loginUser = user || pinUserSel?.user || pinUserSel?.username || pinUserSel?.usuario;
+  const loginUser = String(user||'').trim();
   try{
     const res = await fetchApi('/api/zavala/login', {
       method:'POST',
@@ -1195,9 +1158,8 @@ async function iniciarLoginRemoto(user, pin){
       if(data.state && data.state.servicios!==undefined){
         D = data.state;
       }
-      const found = data.usuario || (D.usuarios||[]).find(u => u.user===user);
+      const found = data.usuario || (D.usuarios||[]).find(u => String(u.user||u.username||'').toLowerCase()===loginUser.toLowerCase());
       if(found){
-        pinUserSel = found;
         entrarConUsuario(found);
       }
     } else {
@@ -1212,20 +1174,17 @@ async function iniciarLoginRemoto(user, pin){
 function mostrarErrorLogin(message){
   document.getElementById('li-err').textContent = message;
   document.getElementById('li-err').style.display = 'block';
-  for(let i=0;i<4;i++){const d=document.getElementById('pd'+i);if(d)d.className='pin-dot err';}
   setTimeout(()=>{
-    pinBuffer='';
-    actualizarPuntos();
-    document.getElementById('li-err').textContent='PIN incorrecto';
     document.getElementById('li-err').style.display='none';
-  },1200);
+  },1500);
 }
 
 function entrarConUsuario(found){
   sesion=found;
+  saveSessionUser(found);
   document.getElementById('login-screen').classList.add('hide');
   document.getElementById('tb-av').textContent=ini(found.nombre);
-  document.getElementById('tb-uname').textContent=found.nombre.split(' ')[0];
+  document.getElementById('tb-uname').textContent=found.nombre;
   const rb=document.getElementById('tb-rol-badge');
   rb.textContent=found.rol==='admin'?'Admin':'Mensajero';
   rb.className='tb-rol '+(found.rol==='admin'?'rol-admin':'rol-msg');
@@ -1252,14 +1211,11 @@ async function doLogout(){
     }catch(e){}
   }
   saveAuthToken(null);
+  saveSessionUser(null);
   pushRegistrationReady=false;
   sesion=null;
-  pinBuffer='';
-  pinUserSel=null;
-  document.getElementById('pin-paso1').style.display='block';
-  document.getElementById('pin-paso2').style.display='none';
+  document.getElementById('li-pass').value='';
   document.getElementById('li-err').style.display='none';
-  actualizarPuntos();
   if(serverMode){
     try{
       const r = await fetchApi('/api/zavala/users');
@@ -1274,7 +1230,7 @@ async function doLogout(){
     }
   }
   document.getElementById('login-screen').classList.remove('hide');
-  renderLoginUsuarios();
+  renderLoginForm();
 }
 
 /* ══════════════════════════════════════════
@@ -1680,7 +1636,7 @@ function guardarMensajero(){
   const pin='1234';
   D.usuarios.push({id:D.nxtUsrId++,nombre:n,user,pass:pin,rol:'mensajero',msgId:nuevo.id});
 
-  guardarTodo();cerrarModal('m-addmsg');renderMensajeros();llenarSels();renderUsuarios();renderLoginUsuarios();
+  guardarTodo();cerrarModal('m-addmsg');renderMensajeros();llenarSels();renderUsuarios();renderLoginForm();
   ['am-nom','am-tel','am-zona'].forEach(x=>document.getElementById(x).value='');
   toast('✓ Mensajero registrado. Usuario: '+user+' | PIN: '+pin);
 }
@@ -1774,12 +1730,16 @@ function guardarEditUsuario(){
     sesion.user=user;
     sesion.rol=rol;
     document.getElementById('tb-av').textContent=ini(nom);
-    document.getElementById('tb-uname').textContent=nom.split(' ')[0];
+    document.getElementById('tb-uname').textContent=nom;
+    const rb=document.getElementById('tb-rol-badge');
+    rb.textContent=rol==='admin'?'Admin':'Mensajero';
+    rb.className='tb-rol '+(rol==='admin'?'rol-admin':'rol-msg');
+    saveSessionUser(sesion);
   }
   guardarTodo();
   cerrarModal('m-editusr');
   renderUsuarios();
-  renderLoginUsuarios();
+  renderLoginForm();
   toast('✓ Usuario "'+nom+'" actualizado');
 }
 
@@ -1813,7 +1773,7 @@ function guardarUsuario(){
     msgId=crearMensajeroSiFalta(nom);
   }
   D.usuarios.push({id:D.nxtUsrId++,nombre:nom,user,pass,rol,msgId});
-  guardarTodo();cerrarModal('m-addusr');renderUsuarios();renderLoginUsuarios();
+  guardarTodo();cerrarModal('m-addusr');renderUsuarios();renderLoginForm();
   ['au-nom','au-user','au-pass'].forEach(x=>document.getElementById(x).value='');
   toast('✓ Usuario "'+nom+'" creado con PIN');
 }
@@ -2053,7 +2013,10 @@ async function iniciarApp(){
   if(!D.reportesRecibidos)D.reportesRecibidos=[];
   if(!D.servicios)D.servicios=[];
   if(normalizarMensajerosDesdeUsuarios())guardarTodo();
-  renderLoginUsuarios();
+  renderLoginForm();
+  if(!(await intentarReanudarSesion())){
+    document.getElementById('login-screen').classList.remove('hide');
+  }
 }
 
 /* ══════════════════════════════════════════
