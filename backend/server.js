@@ -480,6 +480,21 @@ async function getAdminUserIds(state) {
     .filter((id) => Number.isFinite(id));
 }
 
+function normalizeMessengerLinks(state) {
+  let changed = false;
+  const byName = new Map((state.mensajeros || []).map((m) => [String(m.nombre || '').trim().toLowerCase(), Number(m.id)]));
+  for (const u of state.usuarios || []) {
+    if (!u || u.rol !== 'mensajero') continue;
+    if (u.msgId !== null && u.msgId !== undefined && u.msgId !== '') continue;
+    const inferred = byName.get(String(u.nombre || '').trim().toLowerCase());
+    if (Number.isFinite(inferred)) {
+      u.msgId = inferred;
+      changed = true;
+    }
+  }
+  return changed;
+}
+
 async function sendPushToMsgId(msgId, title, body, data = {}) {
   if (!firebaseMessaging || !msgId) return;
   const directTokens = await getTokensByMsgId(msgId);
@@ -890,6 +905,8 @@ async function loadState() {
     }
   }
 
+  normalizeMessengerLinks(state);
+
   if (!state.usuarios.length) {
     return defaultState;
   }
@@ -1074,15 +1091,23 @@ app.post('/api/zavala/push/register', requireAuth, async (req, res) => {
   }
 
   try {
+    const state = await loadState();
+    const stateUser = (state.usuarios || []).find((u) => Number(u.id) === Number(req.user.id));
+    const resolvedMsgId = req.user.msgId ?? stateUser?.msgId ?? null;
+
+    if (resolvedMsgId !== null && resolvedMsgId !== undefined) {
+      await run('UPDATE usuarios SET msgId = ? WHERE id = ? AND (msgId IS NULL OR msgId = \'\')', [resolvedMsgId, req.user.id]);
+    }
+
     await upsertDeviceToken({
       token,
       userId: req.user.id,
-      msgId: req.user.msgId,
+      msgId: resolvedMsgId,
       platform,
     });
     console.log('Push token registered', {
       userId: Number(req.user.id),
-      msgId: req.user.msgId === null ? null : Number(req.user.msgId),
+      msgId: resolvedMsgId === null ? null : Number(resolvedMsgId),
       platform,
       tokenPreview: `${token.slice(0, 12)}...`,
     });
