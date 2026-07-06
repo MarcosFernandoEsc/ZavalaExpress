@@ -473,6 +473,18 @@ async function getTokensByUserIds(userIds) {
   return [...new Set(rows.map((r) => r.token).filter(Boolean))];
 }
 
+async function backfillDeviceTokenMsgIds() {
+  const rows = await all('SELECT token, userId FROM device_tokens WHERE (msgId IS NULL OR msgId = \'\') AND userId IS NOT NULL');
+  for (const row of rows) {
+    const userId = Number(row.userId);
+    if (!Number.isFinite(userId)) continue;
+    const user = await get('SELECT msgId FROM usuarios WHERE id = ?', [userId]);
+    const msgId = user?.msgId ?? user?.msgid ?? null;
+    if (msgId === null || msgId === undefined || msgId === '') continue;
+    await run('UPDATE device_tokens SET msgId = ?, updatedAt = ? WHERE token = ?', [Number(msgId), nowISO(), row.token]);
+  }
+}
+
 async function getAdminUserIds(state) {
   return (state.usuarios || [])
     .filter((u) => u && u.rol === 'admin')
@@ -497,6 +509,7 @@ function normalizeMessengerLinks(state) {
 
 async function sendPushToMsgId(msgId, title, body, data = {}) {
   if (!firebaseMessaging || !msgId) return;
+  await backfillDeviceTokenMsgIds();
   const directTokens = await getTokensByMsgId(msgId);
   const linkedUserIds = await getUserIdsByMsgId(msgId);
   const userTokens = linkedUserIds.length ? await getTokensByUserIds(linkedUserIds) : [];
@@ -1124,6 +1137,7 @@ app.get('/api/zavala/push/debug', requireAuth, async (req, res) => {
   }
 
   try {
+    await backfillDeviceTokenMsgIds();
     const rows = await all('SELECT userId, msgId, platform, updatedAt FROM device_tokens ORDER BY updatedAt DESC LIMIT 100');
     const state = await loadState();
     const byMsg = {};
