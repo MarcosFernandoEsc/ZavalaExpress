@@ -515,7 +515,7 @@ async function sendPushToMsgId(msgId, title, body, data = {}) {
   const userTokens = linkedUserIds.length ? await getTokensByUserIds(linkedUserIds) : [];
   const tokens = [...new Set([...directTokens, ...userTokens])];
   console.log('Push routing by msgId', { msgId, directTokens: directTokens.length, linkedUsers: linkedUserIds.length, userTokens: userTokens.length, total: tokens.length });
-  if (!tokens.length) return;
+  if (!tokens.length) return { attempted: 0, success: 0, failure: 0 };
 
   const response = await firebaseMessaging.sendEachForMulticast({
     tokens,
@@ -539,12 +539,21 @@ async function sendPushToMsgId(msgId, title, body, data = {}) {
       }
     });
   }
+
+  console.log('Push send result by msgId', {
+    msgId,
+    attempted: tokens.length,
+    success: response.successCount,
+    failure: response.failureCount,
+  });
+
+  return { attempted: tokens.length, success: response.successCount, failure: response.failureCount };
 }
 
 async function sendPushToUserIds(userIds, title, body, data = {}) {
   if (!firebaseMessaging) return;
   const tokens = await getTokensByUserIds(userIds);
-  if (!tokens.length) return;
+  if (!tokens.length) return { attempted: 0, success: 0, failure: 0 };
 
   const response = await firebaseMessaging.sendEachForMulticast({
     tokens,
@@ -568,6 +577,8 @@ async function sendPushToUserIds(userIds, title, body, data = {}) {
       }
     });
   }
+
+  return { attempted: tokens.length, success: response.successCount, failure: response.failureCount };
 }
 
 async function notifyStateTransitions(currentState, nextState) {
@@ -1157,6 +1168,34 @@ app.get('/api/zavala/push/debug', requireAuth, async (req, res) => {
   } catch (error) {
     console.error(error);
     res.status(500).json({ ok: false, message: 'Error consultando debug de push', detail: error.message });
+  }
+});
+
+app.post('/api/zavala/push/test', requireAuth, async (req, res) => {
+  if (req.user?.rol !== 'admin') {
+    return res.status(403).json({ ok: false, message: 'Solo admin' });
+  }
+
+  const title = String(req.body?.title || 'Prueba ZAVALAEXPRESS');
+  const body = String(req.body?.body || 'Si ves esto, el push funciona.');
+  const msgId = req.body?.msgId !== undefined && req.body?.msgId !== null ? Number(req.body.msgId) : null;
+  const userId = req.body?.userId !== undefined && req.body?.userId !== null ? Number(req.body.userId) : null;
+
+  try {
+    if (msgId && Number.isFinite(msgId)) {
+      const result = await sendPushToMsgId(msgId, title, body, { type: 'manual_test', msgId });
+      return res.json({ ok: true, target: { msgId }, result });
+    }
+
+    if (userId && Number.isFinite(userId)) {
+      const result = await sendPushToUserIds([userId], title, body, { type: 'manual_test', userId });
+      return res.json({ ok: true, target: { userId }, result });
+    }
+
+    return res.status(400).json({ ok: false, message: 'Envia msgId o userId para prueba' });
+  } catch (error) {
+    console.error('Push test error:', error);
+    return res.status(500).json({ ok: false, message: 'Error enviando push de prueba', detail: error.message });
   }
 });
 
