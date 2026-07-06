@@ -27,6 +27,7 @@ const defaultState = {
   servicios: [],
   auditoria: [],
   reportesRecibidos: [],
+  syncVersion: 1,
   nxtId: 1,
   nxtFolio: 1,
   nxtUsrId: 3,
@@ -862,6 +863,7 @@ async function loadState() {
     nxtId: defaultState.nxtId,
     nxtFolio: defaultState.nxtFolio,
     nxtUsrId: defaultState.nxtUsrId,
+    syncVersion: defaultState.syncVersion,
   };
 
   for (const { key, value } of metaRows) {
@@ -874,6 +876,7 @@ async function loadState() {
       if (key === 'nxtId') state.nxtId = Number(value) || state.nxtId;
       if (key === 'nxtFolio') state.nxtFolio = Number(value) || state.nxtFolio;
       if (key === 'nxtUsrId') state.nxtUsrId = Number(value) || state.nxtUsrId;
+      if (key === 'syncVersion') state.syncVersion = Number(value) || state.syncVersion;
     }
   }
 
@@ -965,6 +968,7 @@ async function saveState(state) {
     await run(insertMeta, ['nxtId', JSON.stringify(state.nxtId || defaultState.nxtId)]);
     await run(insertMeta, ['nxtFolio', JSON.stringify(state.nxtFolio || defaultState.nxtFolio)]);
     await run(insertMeta, ['nxtUsrId', JSON.stringify(state.nxtUsrId || defaultState.nxtUsrId)]);
+    await run(insertMeta, ['syncVersion', JSON.stringify(state.syncVersion || defaultState.syncVersion)]);
 
     await run('COMMIT');
     writeJsonBackup(state);
@@ -1096,6 +1100,27 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
 
   try {
     const current = await loadState();
+    const incomingVersion = Number(incoming.syncVersion);
+    const currentVersion = Number(current.syncVersion || 1);
+
+    if (!Number.isFinite(incomingVersion)) {
+      return res.status(409).json({
+        ok: false,
+        message: 'Cliente desactualizado. Recarga para sincronizar estado.',
+        reason: 'missing_sync_version',
+        currentVersion,
+      });
+    }
+
+    if (incomingVersion !== currentVersion) {
+      return res.status(409).json({
+        ok: false,
+        message: 'Conflicto de sincronización. Se recargó el estado más reciente.',
+        reason: 'sync_conflict',
+        currentVersion,
+      });
+    }
+
     let usuarios = incoming.usuarios;
     if (Array.isArray(usuarios)) {
       usuarios = usuarios.map((u) => {
@@ -1112,6 +1137,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
       ...current,
       ...incoming,
       usuarios: usuarios || current.usuarios,
+      syncVersion: currentVersion + 1,
     };
 
     await saveState(next);

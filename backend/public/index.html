@@ -851,8 +851,28 @@ async function syncServidor(){
         body:payload
       });
       if(res && res.ok){
+        D.syncVersion = Number(D.syncVersion||1) + 1;
         lastSyncedPayload = payload;
       } else {
+        if(res && res.status===409){
+          try{
+            const latest = await fetchApi('/api/zavala/state');
+            if(latest && latest.ok){
+              const remote = await latest.json();
+              if(remote && remote.servicios!==undefined){
+                D = remote;
+                localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));
+                dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+                lastSyncedPayload = JSON.stringify(D);
+                toast('Se recargó la versión más reciente del servidor');
+              }
+            }
+          }catch(e){
+            console.warn('No se pudo resolver conflicto de sync', e);
+          }
+          syncPending = false;
+          break;
+        }
         console.warn('syncServidor failed', res ? res.status : 'no response');
         // Stop retry storm when auth is missing/expired.
         if(res && res.status===401){
@@ -872,6 +892,7 @@ async function syncServidor(){
 }
 
 function guardarTodo(){
+  if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
   const j=JSON.stringify(D);
   try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
   dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
@@ -890,6 +911,7 @@ let D={
   ],
   servicios:[],
   auditoria:[],   // papelera de evidencia — nunca se borra
+  syncVersion:1,
   nxtId:1,nxtFolio:1,nxtUsrId:2
 };
 
@@ -907,6 +929,7 @@ async function cargarDatos(){
         if(r && r.ok){
           const srv=await r.json();
           if(srv&&srv.servicios!==undefined){
+            if(!Number.isFinite(Number(srv.syncVersion)))srv.syncVersion=1;
             srv.usuarios = Array.isArray(srv.usuarios)
               ? srv.usuarios.map((u) => ({
                   ...u,
@@ -935,7 +958,11 @@ async function cargarDatos(){
     }catch(e){console.warn('No se pudo cargar estado remoto:', e);}
   }
   const idb=await dbGet('app').catch(()=>null);
-  if(idb&&idb.servicios!==undefined){D=idb;return;}
+  if(idb&&idb.servicios!==undefined){
+    if(!Number.isFinite(Number(idb.syncVersion)))idb.syncVersion=1;
+    D=idb;
+    return;
+  }
   try{const ls=localStorage.getItem('ze_v5');if(ls){D=JSON.parse(ls);return;}}catch(e){}
 }
 
