@@ -474,7 +474,7 @@ async function getTokensByUserIds(userIds) {
 }
 
 async function backfillDeviceTokenMsgIds() {
-  const rows = await all('SELECT token, userId FROM device_tokens WHERE (msgId IS NULL OR msgId = \'\') AND userId IS NOT NULL');
+  const rows = await all('SELECT token, userId FROM device_tokens WHERE msgId IS NULL AND userId IS NOT NULL');
   for (const row of rows) {
     const userId = Number(row.userId ?? row.userid);
     if (!Number.isFinite(userId)) continue;
@@ -1109,7 +1109,7 @@ app.post('/api/zavala/push/register', requireAuth, async (req, res) => {
     const resolvedMsgId = req.user.msgId ?? stateUser?.msgId ?? null;
 
     if (resolvedMsgId !== null && resolvedMsgId !== undefined) {
-      await run('UPDATE usuarios SET msgId = ? WHERE id = ? AND (msgId IS NULL OR msgId = \'\')', [resolvedMsgId, req.user.id]);
+      await run('UPDATE usuarios SET msgId = ? WHERE id = ? AND msgId IS NULL', [resolvedMsgId, req.user.id]);
     }
 
     await upsertDeviceToken({
