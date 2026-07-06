@@ -423,12 +423,16 @@ function parseServiceDateTime(service) {
 }
 
 async function recordPushEvent(eventKey) {
-  try {
-    await run('INSERT INTO push_events (eventKey, createdAt) VALUES (?, ?)', [eventKey, nowISO()]);
-    return true;
-  } catch {
-    return false;
+  if (usePostgres) {
+    const result = await run(
+      'INSERT INTO push_events (eventKey, createdAt) VALUES (?, ?) ON CONFLICT(eventKey) DO NOTHING',
+      [eventKey, nowISO()]
+    );
+    return Number(result?.rowCount || 0) > 0;
   }
+
+  const result = await run('INSERT OR IGNORE INTO push_events (eventKey, createdAt) VALUES (?, ?)', [eventKey, nowISO()]);
+  return Number(result?.changes || 0) > 0;
 }
 
 async function removeDeviceToken(token) {
