@@ -459,6 +459,12 @@ async function getTokensByMsgId(msgId) {
   return rows.map((r) => r.token).filter(Boolean);
 }
 
+async function getUserIdsByMsgId(msgId) {
+  if (!msgId) return [];
+  const rows = await all('SELECT id FROM usuarios WHERE msgId = ? AND rol = ?', [msgId, 'mensajero']);
+  return rows.map((r) => Number(r.id)).filter((id) => Number.isFinite(id));
+}
+
 async function getTokensByUserIds(userIds) {
   const ids = (userIds || []).map((id) => Number(id)).filter((id) => Number.isFinite(id));
   if (!ids.length) return [];
@@ -476,7 +482,11 @@ async function getAdminUserIds(state) {
 
 async function sendPushToMsgId(msgId, title, body, data = {}) {
   if (!firebaseMessaging || !msgId) return;
-  const tokens = await getTokensByMsgId(msgId);
+  const directTokens = await getTokensByMsgId(msgId);
+  const linkedUserIds = await getUserIdsByMsgId(msgId);
+  const userTokens = linkedUserIds.length ? await getTokensByUserIds(linkedUserIds) : [];
+  const tokens = [...new Set([...directTokens, ...userTokens])];
+  console.log('Push routing by msgId', { msgId, directTokens: directTokens.length, linkedUsers: linkedUserIds.length, userTokens: userTokens.length, total: tokens.length });
   if (!tokens.length) return;
 
   const response = await firebaseMessaging.sendEachForMulticast({
@@ -1070,10 +1080,44 @@ app.post('/api/zavala/push/register', requireAuth, async (req, res) => {
       msgId: req.user.msgId,
       platform,
     });
+    console.log('Push token registered', {
+      userId: Number(req.user.id),
+      msgId: req.user.msgId === null ? null : Number(req.user.msgId),
+      platform,
+      tokenPreview: `${token.slice(0, 12)}...`,
+    });
     res.json({ ok: true, registered: true });
   } catch (error) {
     console.error(error);
     res.status(500).json({ ok: false, message: 'Error registrando token push' });
+  }
+});
+
+app.get('/api/zavala/push/debug', requireAuth, async (req, res) => {
+  if (req.user?.rol !== 'admin') {
+    return res.status(403).json({ ok: false, message: 'Solo admin' });
+  }
+
+  try {
+    const rows = await all('SELECT userId, msgId, platform, updatedAt FROM device_tokens ORDER BY updatedAt DESC LIMIT 100');
+    const state = await loadState();
+    const byMsg = {};
+    rows.forEach((r) => {
+      const key = String(r.msgId ?? 'null');
+      byMsg[key] = (byMsg[key] || 0) + 1;
+    });
+
+    res.json({
+      ok: true,
+      totalTokens: rows.length,
+      byMsg,
+      mensajeros: (state.mensajeros || []).length,
+      usuariosMensajero: (state.usuarios || []).filter((u) => u.rol === 'mensajero').length,
+      lastTokens: rows,
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error consultando debug de push' });
   }
 });
 

@@ -760,6 +760,30 @@ function getPushPlugin(){
   return window.Capacitor?.Plugins?.PushNotifications || null;
 }
 
+function getLocalNotificationsPlugin(){
+  return window.Capacitor?.Plugins?.LocalNotifications || null;
+}
+
+async function mostrarNotificacionSistema(title, body){
+  const LocalNotifications = getLocalNotificationsPlugin();
+  if(!LocalNotifications) return;
+  try{
+    const perm = await LocalNotifications.requestPermissions();
+    if(perm.display !== 'granted') return;
+    await LocalNotifications.schedule({
+      notifications:[{
+        id: Date.now() % 2147483647,
+        title: title || 'ZAVALAEXPRESS',
+        body: body || 'Tienes una nueva notificación',
+        channelId: 'zavala-default',
+        sound: 'default',
+      }]
+    });
+  }catch(e){
+    console.warn('No se pudo mostrar notificación local', e);
+  }
+}
+
 async function registrarTokenPushRemoto(token){
   if(!serverMode || !authToken || !token) return;
   try{
@@ -789,6 +813,7 @@ async function iniciarPushNativo(){
     PushNotifications.addListener('registration', token => {
       const value = token?.value || '';
       if(value){
+        console.log('Push token obtenido', value.slice(0,12)+'...');
         registrarTokenPushRemoto(value);
       }
     });
@@ -798,7 +823,10 @@ async function iniciarPushNativo(){
     });
 
     PushNotifications.addListener('pushNotificationReceived', notification => {
-      const msg = notification?.body || notification?.title || 'Nuevo aviso';
+      const title = notification?.title || 'ZAVALAEXPRESS';
+      const msg = notification?.body || 'Nuevo aviso';
+      // En foreground Android no siempre enseña banner del sistema; lo forzamos con local notification.
+      mostrarNotificacionSistema(title, msg);
       toast(msg);
     });
 
@@ -811,10 +839,26 @@ async function iniciarPushNativo(){
   }
 
   try{
+    try{
+      await PushNotifications.createChannel({
+        id: 'zavala-default',
+        name: 'Zavala Express',
+        description: 'Avisos de servicios y recordatorios',
+        importance: 5,
+        visibility: 1,
+        sound: 'default',
+        vibration: true,
+      });
+    }catch(e){
+      console.warn('No se pudo crear canal push', e);
+    }
+
     const perm = await PushNotifications.requestPermissions();
     if(perm.receive === 'granted'){
       await PushNotifications.register();
       pushRegistrationReady = true;
+    } else {
+      toast('Activa notificaciones en ajustes para recibir avisos');
     }
   }catch(e){
     console.warn('No se pudo iniciar push nativo', e);
