@@ -1156,7 +1156,7 @@ app.get('/api/zavala/push/debug', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ ok: false, message: 'Error consultando debug de push' });
+    res.status(500).json({ ok: false, message: 'Error consultando debug de push', detail: error.message });
   }
 });
 
