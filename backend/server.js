@@ -39,6 +39,8 @@ let firebaseMessaging = null;
 let usePostgres = Boolean(process.env.DATABASE_URL);
 const sseClients = new Set();
 let stateMutationLock = Promise.resolve();
+// Buffer en memoria para eventos de merge relevantes (diagnóstico)
+const mergeAuditLogs = [];
 
 function initFirebaseMessaging() {
   if (firebaseMessaging) return;
@@ -1450,6 +1452,16 @@ app.post('/api/zavala/reportes/export', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/api/zavala/merge-logs', requireAuth, async (req, res) => {
+  try {
+    if (req.user?.rol !== 'admin') return res.status(403).json({ ok: false, message: 'Solo admin' });
+    return res.json({ ok: true, count: mergeAuditLogs.length, logs: mergeAuditLogs.slice().reverse() });
+  } catch (error) {
+    console.error('Error returning merge logs:', error.message);
+    return res.status(500).json({ ok: false, message: 'Error interno' });
+  }
+});
+
 app.post('/api/zavala/state', requireAuth, async (req, res) => {
   const incoming = req.body;
   if (!incoming || typeof incoming !== 'object') {
@@ -1569,7 +1581,40 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
         // Regla de seguridad: una finalización ya registrada no debe revertirse por payloads atrasados.
         const wasFinalized = Boolean(existing?.finalizadoPor);
         const isIncomingFinalized = Boolean(u?.finalizadoPor);
+        // Logging detallado para depuración de reversiones de estado
+        try{
+          console.log('mergeServiciosById: evaluating', {
+            serviceId: id,
+            userId: req.user?.id,
+            userRole: req.user?.rol,
+            existingFinalizadoPor: existing?.finalizadoPor || null,
+            existingFinalizadoEn: existing?.finalizadoEn || null,
+            existingUpdatedAt: existingUpdated || 0,
+            incomingFinalizadoPor: u?.finalizadoPor || null,
+            incomingUpdatedAt: incomingUpdated || 0,
+          });
+        }catch(e){/* ignore logging errors */}
+
+        // Si el servicio ya estaba finalizado en el servidor y el payload entrante
+        // no contiene finalización, preservamos la finalización existente.
         if (wasFinalized && !isIncomingFinalized) {
+            // Registro en buffer para diagnóstico remoto
+            try{
+              mergeAuditLogs.push({
+                ts: nowISO(),
+                serviceId: id,
+                userId: req.user?.id ?? null,
+                userRole: req.user?.rol ?? null,
+                existingFinalizadoPor: existing?.finalizadoPor || null,
+                existingFinalizadoEn: existing?.finalizadoEn || null,
+                incomingFinalizadoPor: u?.finalizadoPor || null,
+                incomingUpdatedAt: incomingUpdated || null,
+                note: 'prevented_unfinalize'
+              });
+              if (mergeAuditLogs.length > 200) mergeAuditLogs.shift();
+            }catch(e){/* ignore */}
+          // Adicional: si el incomingUpdated es mayor que existingUpdated pero no trae finalizado,
+          // igualmente protegemos la finalización para evitar reversiones por clientes obsoletos.
           merged.finalizadoPor = existing.finalizadoPor;
           merged.finalizadoEn = existing.finalizadoEn;
           merged.finalizadoReporte = existing.finalizadoReporte;
@@ -1578,6 +1623,8 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
           merged.fotoFinalReemplazos = existing.fotoFinalReemplazos;
           merged.estatus = 'Finalizado';
         }
+
+        // Aseguramos que cualquier servicio con campo finalizado presente tenga estatus Finalizado.
         if (merged.finalizadoPor) {
           merged.estatus = 'Finalizado';
         }
