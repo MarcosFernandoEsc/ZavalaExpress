@@ -1190,7 +1190,11 @@ async function iniciarLoginRemoto(user, pin){
       if(data.state && data.state.servicios!==undefined){
         D = data.state;
       }
-      const found = data.usuario || (D.usuarios||[]).find((u) => String(u.user||u.username||'').trim().toLowerCase()===loginUser.toLowerCase());
+      const normalizedUser = String(loginUser || '').trim().toLowerCase();
+      const found = data.usuario || (D.usuarios||[]).find((u)=>{
+        const check = (k)=>String(k||'').trim().toLowerCase()===normalizedUser;
+        return check(u.user) || check(u.username) || check(u.usuario) || check(u.nombre);
+      });
       if(found){
         pinUserSel = found;
         entrarConUsuario(found);

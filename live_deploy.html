@@ -1213,7 +1213,10 @@ async function iniciarLoginRemoto(user, pin){
         D = data.state;
       }
       const normalizedUser = String(loginUser || '').trim().toLowerCase();
-      const found = data.usuario || (D.usuarios||[]).find(u => String(u.user || u.username || u.usuario || '').trim().toLowerCase()===normalizedUser);
+      const found = data.usuario || (D.usuarios||[]).find((u)=>{
+        const check = (k)=>String(k||'').trim().toLowerCase()===normalizedUser;
+        return check(u.user) || check(u.username) || check(u.usuario) || check(u.nombre);
+      });
       if(found){
         pinUserSel = found;
         entrarConUsuario(found);

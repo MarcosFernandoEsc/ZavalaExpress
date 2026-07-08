@@ -1183,9 +1183,12 @@ app.post('/api/zavala/login', async (req, res) => {
     const state = await loadState();
     const found = (state.usuarios || []).find((u) => {
       const storedUser = String(u.user ?? u.username ?? u.usuario ?? '').trim().toLowerCase();
-      return storedUser === loginNormalized && String(u.pass) === String(pass);
+      const storedNombre = String(u.nombre ?? '').trim().toLowerCase();
+      const passMatch = String(u.pass) === String(pass);
+      return passMatch && (storedUser === loginNormalized || storedNombre === loginNormalized);
     });
     if (!found) {
+      console.warn('Login fallido para:', userTrim);
       return res.status(401).json({ ok: false, message: 'Usuario o PIN incorrecto' });
     }
 
@@ -1206,6 +1209,11 @@ app.get('/api/zavala/state', requireAuth, async (_req, res) => {
     console.error(error);
     res.status(500).json({ ok: false, message: 'Error al cargar estado' });
   }
+});
+
+// Health check endpoint
+app.get('/health', (_req, res) => {
+  res.json({ ok: true, uptime: process.uptime(), timestamp: new Date().toISOString() });
 });
 
 app.post('/api/zavala/logout', requireAuth, async (req, res) => {

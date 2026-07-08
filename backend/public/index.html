@@ -1192,7 +1192,10 @@ async function submitLogin(){
     await iniciarLoginRemoto(user, pass);
     return;
   }
-  const found=(D.usuarios||[]).find((u)=>String(u.user||u.username||'').toLowerCase()===user.toLowerCase());
+  const found=(D.usuarios||[]).find((u)=>{
+    const check = (k)=>String(k||'').toLowerCase()===user.toLowerCase();
+    return check(u.user) || check(u.username) || check(u.usuario) || check(u.nombre);
+  });
   if(found && String(found.pass||'')===pass){
     entrarConUsuario(found);
   } else {

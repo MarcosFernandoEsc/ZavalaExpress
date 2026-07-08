@@ -1,4 +1,4 @@
-const CACHE_NAME = 'zavala-cache-v2';
+const CACHE_NAME = 'zavala-cache-v3';
 const ASSETS = ['/', '/index.html', '/manifest.json', '/icon.svg', '/service-worker.js'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE_NAME).then(cache => cache.addAll(ASSETS)));
