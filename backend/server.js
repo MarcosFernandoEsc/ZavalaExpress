@@ -747,8 +747,14 @@ async function requireAuth(req, res, next) {
       return res.status(401).json({ ok: false, message: 'Token inválido o expirado' });
     }
 
-    const sessionUserId = session.userId ?? session.userid;
+    const sessionUserIdRaw = session.userId ?? session.userid;
+    const sessionUserId = Number(sessionUserIdRaw);
+    if (!Number.isFinite(sessionUserId)) {
+      console.log('Session userId inválido:', { sessionUserIdRaw, token: token ? token.slice(0, 8) + '...' : '' });
+      return res.status(401).json({ ok: false, message: 'Token inválido o expirado' });
+    }
     const user = await getUserById(sessionUserId);
+
     if (!user) {
       console.log('Authenticated session user not found:', sessionUserId, 'raw session:', session);
       return res.status(401).json({ ok: false, message: 'Usuario no encontrado' });
@@ -1234,14 +1240,19 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
       });
     }
 
+    // Si el cliente trae una syncVersion atrasada (apps ya instaladas / sin reinstalación),
+    // evitamos bloquear el uso: regresamos el estado actual para que el cliente lo aplique.
+    // Esto previene que la app se quede inutilizable por un 409.
     if (incomingVersion !== currentVersion) {
-      return res.status(409).json({
+      return res.status(200).json({
         ok: false,
-        message: 'Conflicto de sincronización. Se recargó el estado más reciente.',
+        message: 'Estado desactualizado. Se regresó el estado más reciente para reintentar sincronización.',
         reason: 'sync_conflict',
         currentVersion,
+        state: sanitizeState(current),
       });
     }
+
 
     let usuarios = incoming.usuarios;
     if (Array.isArray(usuarios)) {
@@ -1255,12 +1266,33 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
       });
     }
 
+    // Normalización defensiva para evitar fallas por tipos/formatos en apps ya instaladas.
+    const normalizeIncomingService = (s) => {
+      if (!s || typeof s !== 'object') return s;
+      const out = { ...s };
+      if (out.monto === '' || out.monto === undefined || out.monto === null) out.monto = out.monto || 0;
+      out.monto = Number(out.monto);
+      if (!Number.isFinite(out.monto)) out.monto = 0;
+      if (out.fotoFinalReemplazos === undefined || out.fotoFinalReemplazos === null || out.fotoFinalReemplazos === '') out.fotoFinalReemplazos = 0;
+      const fr = Number(out.fotoFinalReemplazos);
+      out.fotoFinalReemplazos = Number.isFinite(fr) ? fr : 0;
+      if (typeof out.personas === 'string') {
+        try { out.personas = JSON.parse(out.personas); } catch { out.personas = []; }
+      }
+      if (!Array.isArray(out.personas)) out.personas = [];
+      return out;
+    };
+
+    const incomingServicios = Array.isArray(incoming.servicios) ? incoming.servicios.map(normalizeIncomingService) : incoming.servicios;
+
     const next = {
       ...current,
       ...incoming,
+      servicios: incomingServicios !== undefined ? incomingServicios : current.servicios,
       usuarios: usuarios || current.usuarios,
       syncVersion: currentVersion + 1,
     };
+
 
     await saveState(next);
     notifyStateTransitions(current, next).catch((error) => console.error('Error enviando push de cambios:', error.message));
