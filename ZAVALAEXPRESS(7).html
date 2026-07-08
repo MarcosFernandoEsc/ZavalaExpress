@@ -2184,7 +2184,7 @@ async function iniciarApp(){
 /* ══════════════════════════════════════════
    EXPORTAR REPORTE (mensajero → admin)
 ══════════════════════════════════════════ */
-function exportarReporte(){
+async function exportarReporte(){
   const mid=parseInt(document.getElementById('rpt-msg').value)||0;
   const desde=document.getElementById('rpt-desde').value;
   const hasta=document.getElementById('rpt-hasta').value;
@@ -2212,17 +2212,48 @@ function exportarReporte(){
     servicios:svcs
   };
 
-  const blob=new Blob([JSON.stringify(paquete,null,2)],{type:'application/json'});
-  const url=URL.createObjectURL(blob);
-  const a=document.createElement('a');
   const fecha=new Date().toISOString().slice(0,10);
-  a.href=url;
-  a.download=`ZX_Reporte_${mensajeroNombre.replace(/\s+/g,'_')}_${fecha}.zxr`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  toast('✓ Reporte exportado — compártelo por WhatsApp');
+  const fileName=`ZX_Reporte_${mensajeroNombre.replace(/\s+/g,'_')}_${fecha}.zxr`;
+  const blob=new Blob([JSON.stringify(paquete,null,2)],{type:'application/json'});
+
+  // En móvil (Android/iOS) priorizamos compartir archivo porque muchos WebView bloquean download.
+  try{
+    const file=new File([blob], fileName, {type:'application/json'});
+    if(navigator.share && navigator.canShare && navigator.canShare({files:[file]})){
+      await navigator.share({
+        title:'Reporte ZAVALAEXPRESS',
+        text:'Reporte exportado para compartir con administración',
+        files:[file]
+      });
+      toast('✓ Reporte listo para compartir');
+      return;
+    }
+  }catch(e){
+    console.warn('No se pudo compartir archivo con Web Share API', e);
+  }
+
+  try{
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;
+    a.download=fileName;
+    a.target='_blank';
+    a.rel='noopener';
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(()=>URL.revokeObjectURL(url),30000);
+    toast('✓ Reporte exportado');
+  }catch(e){
+    console.error('Exportar reporte falló', e);
+    try{
+      const dataUrl='data:application/json;charset=utf-8,'+encodeURIComponent(JSON.stringify(paquete,null,2));
+      window.open(dataUrl,'_blank');
+      toast('Abre la pestaña del reporte y compártelo');
+      return;
+    }catch{}
+    alert('No se pudo exportar en este dispositivo. Intenta abrir la app en Chrome y vuelve a exportar.');
+  }
 }
 
 /* ══════════════════════════════════════════
