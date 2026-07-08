@@ -884,8 +884,20 @@ app.use((err, req, res, next) => {
     console.error('JSON parse error:', err.message);
     return res.status(400).json({ ok: false, message: 'JSON inválido en la petición' });
   }
+
+  // Mensajes más claros para el cliente (sin exponer detalles internos)
+  if (err) {
+    console.error('Request error:', {
+      message: err.message,
+      path: req?.path,
+      method: req?.method,
+    });
+    return res.status(500).json({ ok: false, message: 'Error interno del servidor' });
+  }
+
   next(err);
 });
+
 
 function writeJsonBackup(state) {
   try {
@@ -1133,8 +1145,15 @@ app.use((err, req, res, next) => {
 });
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, app: 'zavalaexpress-backend', status: 'advance' });
+  res.json({
+    ok: true,
+    app: 'zavalaexpress-backend',
+    status: 'advance',
+    // Aumenta esto cuando quieras forzar compatibilidad por versión de app.
+    backendVersion: 6,
+  });
 });
+
 
 app.get('/api/zavala/users', async (_req, res) => {
   try {
@@ -1149,13 +1168,19 @@ app.get('/api/zavala/users', async (_req, res) => {
 app.post('/api/zavala/login', async (req, res) => {
   const user = req.body.user ?? req.body.username ?? req.body.usuario;
   const pass = req.body.pass ?? req.body.password ?? req.body.pin;
-  if (!user || !pass) {
+
+  if (typeof user !== 'string' || typeof pass !== 'string') {
+    return res.status(400).json({ ok: false, message: 'Usuario y PIN deben ser texto' });
+  }
+
+  const userTrim = user.trim();
+  if (!userTrim || !pass.trim()) {
     return res.status(400).json({ ok: false, message: 'Usuario o PIN faltante' });
   }
 
   try {
     const state = await loadState();
-    const found = (state.usuarios || []).find((u) => u.user === user && u.pass === pass);
+    const found = (state.usuarios || []).find((u) => u.user === userTrim && String(u.pass) === String(pass));
     if (!found) {
       return res.status(401).json({ ok: false, message: 'Usuario o PIN incorrecto' });
     }
@@ -1167,6 +1192,7 @@ app.post('/api/zavala/login', async (req, res) => {
     res.status(500).json({ ok: false, message: 'Error al autenticar usuario' });
   }
 });
+
 
 app.get('/api/zavala/state', requireAuth, async (_req, res) => {
   try {
@@ -1307,6 +1333,24 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
 
   try {
     const current = await loadState();
+
+    // Fase 6: compatibilidad app↔backend sin reinstalación.
+    // El cliente puede mandar backendCompatVersion. Si no viene, se asume compatible.
+    // Nota: esto NO rompe por default; solo avisa.
+    const backendCompatVersion = Number(incoming.backendCompatVersion ?? incoming.backend_version ?? 0);
+    const backendVersion = 6;
+    if (Number.isFinite(backendCompatVersion) && backendCompatVersion > 0 && backendCompatVersion !== backendVersion) {
+      // Regresamos estado actual para que el cliente se reconcilie.
+      return res.status(200).json({
+        ok: false,
+        message: 'Compatibilidad de versión. Se regresó el estado para reintentar con el backend actualizado.',
+        reason: 'backend_version_mismatch',
+        backendVersion,
+        clientCompatVersion: backendCompatVersion,
+        state: sanitizeState(current),
+      });
+    }
+
     const incomingVersion = Number(incoming.syncVersion);
     const currentVersion = Number(current.syncVersion || 1);
 
@@ -1321,7 +1365,6 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
 
     // Si el cliente trae una syncVersion atrasada (apps ya instaladas / sin reinstalación),
     // evitamos bloquear el uso: regresamos el estado actual para que el cliente lo aplique.
-    // Esto previene que la app se quede inutilizable por un 409.
     if (incomingVersion !== currentVersion) {
       return res.status(200).json({
         ok: false,
@@ -1331,6 +1374,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
         state: sanitizeState(current),
       });
     }
+
 
 
     let usuarios = incoming.usuarios;
