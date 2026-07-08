@@ -667,40 +667,62 @@ function startReminderLoop() {
 }
 
 async function createSession(userId) {
-  const token = crypto.randomUUID();
+  // Fase 3: Seguridad sin reinicios.
+  // Guardamos un token “no reversible” (hash) para que un dump de BD no entregue sesiones.
+  const rawToken = crypto.randomUUID();
+  const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
   const createdAt = nowISO();
   const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
-  await run('INSERT INTO sessions (token, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)', [token, userId, createdAt, expiresAt]);
-  console.log('Created session', { token: token.slice(0, 8) + '...', userId, createdAt, expiresAt });
-  return token;
+
+  await run(
+    'INSERT INTO sessions (token, userId, createdAt, expiresAt) VALUES (?, ?, ?, ?)',
+    [tokenHash, userId, createdAt, expiresAt]
+  );
+  console.log('Created session', { token: rawToken.slice(0, 8) + '...', userId, createdAt, expiresAt });
+  return rawToken;
 }
+
 
 async function findSession(token) {
   if (!token) return null;
   await ensureStorage();
-  const session = await get('SELECT * FROM sessions WHERE token = ? AND expiresAt > ?', [token, nowISO()]);
+
+  const tokenHash = crypto.createHash('sha256').update(String(token)).digest('hex');
+  const session = await get('SELECT * FROM sessions WHERE token = ? AND expiresAt > ?', [tokenHash, nowISO()]);
+
   if (!session) {
-    console.log('Session not found or expired for token:', token ? token.slice(0, 8) + '...' : '(empty)');
+    console.log('Session not found or expired for token:', token ? String(token).slice(0, 8) + '...' : '(empty)');
   } else {
-    console.log('Session found for token:', token ? token.slice(0, 8) + '...' : '(empty)', 'session:', session);
+    console.log('Session found for token:', token ? String(token).slice(0, 8) + '...' : '(empty)', 'session:', session);
   }
   return session;
 }
+
 
 async function getUserById(userId) {
   if (userId === undefined || userId === null) return null;
   const numericId = Number(userId);
   console.log('Looking up user by id:', { userId, numericId });
+
+  // SQLite: some older DBs might have `user` column instead of `username`.
+  // We never rely on `username` being present; we map both.
   const user = await get('SELECT * FROM usuarios WHERE id = ?', [numericId]);
   if (user) {
-    console.log('Found user in DB:', { id: user.id, username: user.username, user: user.user });
-    return user;
+    const mapped = {
+      ...user,
+      username: user.username ?? user.user,
+      user: user.user ?? user.username,
+    };
+    console.log('Found user in DB:', { id: mapped.id, username: mapped.username, user: mapped.user });
+    return mapped;
   }
+
   const state = await loadState();
   const fallback = (state.usuarios || []).find((u) => Number(u.id) === numericId) || null;
   console.log('Fallback state lookup for user id', numericId, 'found:', !!fallback);
   return fallback;
 }
+
 
 function resolveAuthToken(req) {
   const header = req.headers.authorization || req.headers['authorization'] || req.headers['x-access-token'] || req.headers['x-auth-token'];
