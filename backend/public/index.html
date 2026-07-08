@@ -1181,9 +1181,25 @@ async function cargarDatos(){
   if(idb&&idb.servicios!==undefined){
     if(!Number.isFinite(Number(idb.syncVersion)))idb.syncVersion=1;
     D=idb;
+    try{
+      const patches = getPendingPatches();
+      if(Array.isArray(patches) && patches.length){
+        for(const p of patches){
+          const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+          if(s && p.patch) Object.assign(s, p.patch);
+        }
+        setPendingPatches([]);
+        try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+        dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+      }
+    }catch(e){}
     return;
   }
-  try{const ls=localStorage.getItem('ze_v5');if(ls){D=JSON.parse(ls);return;}}catch(e){}
+  try{const ls=localStorage.getItem('ze_v5');if(ls){
+    D=JSON.parse(ls);
+    try{const patches=getPendingPatches();if(Array.isArray(patches)&&patches.length){for(const p of patches){const s=D.servicios.find(x=>Number(x.id)===Number(p.id));if(s&&p.patch)Object.assign(s,p.patch);}setPendingPatches([]);try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}dbSet('app', sanitizeStateForCache(D)).catch(()=>{});} }catch(e){}
+    return;
+  }}catch(e){}
 }
 
 /* ══════════════════════════════════════════
@@ -1289,7 +1305,13 @@ function checkRecordatorios(){
 function msgNom(id){const m=D.mensajeros.find(x=>x.id===id);return m?m.nombre:'Sin asignar';}
 function ini(n){return(n||'?').split(' ').map(x=>x[0]).join('').slice(0,2).toUpperCase();}
 function esAdmin(){return sesion&&sesion.rol==='admin';}
-function estadoServicio(v){return v&&v.finalizadoPor?'Finalizado':(v&&v.estatus)||'Programado';}
+function estadoServicio(v){
+  // Nunca “volver a Programado” si el servicio ya fue finalizado.
+  // Priorizamos finalizadoPor como fuente de verdad.
+  if(!v) return 'Programado';
+  if(v.finalizadoPor) return 'Finalizado';
+  return (v.estatus)||'Programado';
+}
 function puedeFinalizar(v){
   if(!v||v.finalizadoPor||!sesion||sesion.msgId!==v.msgId) return false;
   return v.fecha&&v.fecha<=hoy();

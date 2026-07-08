@@ -998,8 +998,26 @@ async function cargarDatos(){
     }catch(e){console.warn('No se pudo cargar estado remoto:', e);}
   }
   const idb=await dbGet('app').catch(()=>null);
-  if(idb&&idb.servicios!==undefined){D=idb;return;}
-  try{const ls=localStorage.getItem('ze_v5');if(ls){D=JSON.parse(ls);return;}}catch(e){}
+  if(idb&&idb.servicios!==undefined){
+    D=idb;
+    try{
+      const patches = (function(){try{return JSON.parse(localStorage.getItem('ze_pending_patches')||'[]')}catch(e){return []}})();
+      if(Array.isArray(patches) && patches.length){
+        for(const p of patches){
+          const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+          if(s && p.patch) Object.assign(s, p.patch);
+        }
+        localStorage.setItem('ze_pending_patches', JSON.stringify([]));
+        try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(D));}catch(e){}
+        dbSet('app', D).catch(()=>{});
+      }
+    }catch(e){}
+    return;
+  }
+  try{const ls=localStorage.getItem('ze_v5');if(ls){
+    D=JSON.parse(ls);
+    try{const patches=(function(){try{return JSON.parse(localStorage.getItem('ze_pending_patches')||'[]')}catch(e){return []}})();if(Array.isArray(patches)&&patches.length){for(const p of patches){const s=D.servicios.find(x=>Number(x.id)===Number(p.id));if(s&&p.patch)Object.assign(s,p.patch);}localStorage.setItem('ze_pending_patches', JSON.stringify([]));try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(D));}catch(e){}dbSet('app', D).catch(()=>{});} }catch(e){}
+    return;}}catch(e){}
 }
 
 /* ══════════════════════════════════════════

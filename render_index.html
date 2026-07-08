@@ -858,6 +858,7 @@ async function syncServidor(){
       });
       if(res && res.ok){
         lastSyncedPayload = payload;
+        hasUnsyncedLocalChanges = false;
       } else if(res && res.status===409) {
         // try to recover from conflict: get server state and reapply local pending patches
         let body=null;
@@ -903,6 +904,7 @@ async function syncServidor(){
 
 function guardarTodo(){
   const j=JSON.stringify(D);
+  hasUnsyncedLocalChanges = true;
   try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
   dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
   syncServidor();
@@ -941,6 +943,7 @@ let D={
 
 let sesion=null;   // usuario logueado
 let fS='todos', tmpP=[], tmpFoto=null;
+let hasUnsyncedLocalChanges = false;
 
 /* ══════════════════════════════════════════
    CARGA DE DATOS
@@ -983,7 +986,22 @@ async function cargarDatos(){
     }catch(e){console.warn('No se pudo cargar estado remoto:', e);}
   }
   const idb=await dbGet('app').catch(()=>null);
-  if(idb&&idb.servicios!==undefined){D=idb;return;}
+  if(idb&&idb.servicios!==undefined){
+    D=idb;
+    try{
+      const patches = getPendingPatches();
+      if(Array.isArray(patches) && patches.length){
+        for(const p of patches){
+          const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+          if(s && p.patch) Object.assign(s, p.patch);
+        }
+        setPendingPatches([]);
+        try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+        dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+      }
+    }catch(e){}
+    return;
+  }
   try{const ls=localStorage.getItem('ze_v5');if(ls){D=JSON.parse(ls);return;}}catch(e){}
 }
 
