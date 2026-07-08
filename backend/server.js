@@ -1566,11 +1566,29 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
       return out;
     };
 
+    const dedupeById = (arr) => {
+      if (!Array.isArray(arr)) return arr;
+      const map = new Map();
+      for (const item of arr) {
+        const id = Number(item?.id);
+        if (!Number.isFinite(id)) continue;
+        map.set(id, { ...item, id });
+      }
+      return Array.from(map.values());
+    };
+
+    const mergedServicios = incomingServicios !== undefined
+      ? mergeServiciosById(current.servicios, incomingServicios)
+      : current.servicios;
+    const mergedUsuarios = usuarios || current.usuarios;
+    const mergedMensajeros = Array.isArray(incoming.mensajeros) ? incoming.mensajeros : current.mensajeros;
+
     const next = {
       ...current,
       ...incoming,
-      servicios: incomingServicios !== undefined ? mergeServiciosById(current.servicios, incomingServicios) : current.servicios,
-      usuarios: usuarios || current.usuarios,
+      servicios: dedupeById(mergedServicios),
+      usuarios: dedupeById(mergedUsuarios),
+      mensajeros: dedupeById(mergedMensajeros),
       auditoria: Array.isArray(incoming.auditoria) ? mergeAuditoriaConservador(current.auditoria, incoming.auditoria) : current.auditoria,
       reportesRecibidos: Array.isArray(incoming.reportesRecibidos)
         ? mergeReportesRecibidosConservador(current.reportesRecibidos, incoming.reportesRecibidos)
@@ -1587,7 +1605,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ ok: false, message: 'Error al guardar estado' });
+    res.status(500).json({ ok: false, message: 'Error al guardar estado', detail: error?.message || String(error) });
   }
 });
 
