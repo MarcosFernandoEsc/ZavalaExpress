@@ -1393,6 +1393,63 @@ app.post('/api/zavala/push/unregister', requireAuth, async (req, res) => {
   }
 });
 
+app.post('/api/zavala/reportes/export', requireAuth, async (req, res) => {
+  const incoming = req.body;
+  if (!incoming || typeof incoming !== 'object') {
+    return res.status(400).json({ ok: false, message: 'Body inválido' });
+  }
+
+  try {
+    await withStateMutationLock(async () => {
+      const current = await loadState();
+      const stateUser = (current.usuarios || []).find((u) => Number(u.id) === Number(req.user?.id));
+      const userMsgId = Number(req.user?.msgId ?? stateUser?.msgId);
+      if (!Number.isFinite(userMsgId)) {
+        return res.status(403).json({ ok: false, message: 'Usuario sin mensajero asociado', reason: 'missing_msgid' });
+      }
+
+      const incomingServicios = Array.isArray(incoming.servicios) ? incoming.servicios : [];
+      const servicios = incomingServicios
+        .filter((s) => Number(s?.msgId) === userMsgId)
+        .map((s) => ({ ...s }));
+
+      if (!servicios.length) {
+        return res.status(400).json({ ok: false, message: 'Sin servicios válidos para exportar' });
+      }
+
+      const paquete = {
+        _tipo: 'zavalaexpress_reporte',
+        _version: Number(incoming._version || 1),
+        _exportadoPor: String(req.user?.nombre || stateUser?.nombre || incoming._exportadoPor || 'Mensajero').trim(),
+        _exportadoEn: String(incoming._exportadoEn || nowISO()),
+        _desde: String(incoming._desde || ''),
+        _hasta: String(incoming._hasta || ''),
+        mensajeroNombre: String(incoming.mensajeroNombre || req.user?.nombre || stateUser?.nombre || 'Mensajero').trim(),
+        mensajeros: Array.isArray(current.mensajeros) ? current.mensajeros : [],
+        servicios,
+      };
+
+      const key = `${paquete._exportadoPor}|${paquete._exportadoEn}`;
+      const base = Array.isArray(current.reportesRecibidos) ? current.reportesRecibidos : [];
+      const nextReportes = base.filter((r) => `${String(r?._exportadoPor || '')}|${String(r?._exportadoEn || '')}` !== key);
+      nextReportes.push(paquete);
+
+      const next = {
+        ...current,
+        reportesRecibidos: nextReportes,
+        syncVersion: Number(current.syncVersion || 1) + 1,
+      };
+
+      await saveState(next);
+      broadcastStateUpdate(next.syncVersion, req.user?.id);
+      return res.json({ ok: true, saved: true, reportesRecibidos: nextReportes.length });
+    });
+  } catch (error) {
+    console.error(error);
+    return res.status(500).json({ ok: false, message: 'Error al exportar reporte', detail: error?.message || String(error) });
+  }
+});
+
 app.post('/api/zavala/state', requireAuth, async (req, res) => {
   const incoming = req.body;
   if (!incoming || typeof incoming !== 'object') {
