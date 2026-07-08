@@ -1471,6 +1471,10 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
       ? incoming.servicios.map(normalizeIncomingService)
       : incoming.servicios;
 
+    const isAdminUser = req.user?.rol === 'admin';
+    const stateUser = (current.usuarios || []).find((u) => Number(u.id) === Number(req.user?.id));
+    const userMsgId = Number(req.user?.msgId ?? stateUser?.msgId);
+
     const mergeServiciosById = (base, updates) => {
       // Merge conservador por id: preserva campos que existían y no vienen en el payload legacy.
       if (!Array.isArray(base) || !Array.isArray(updates)) return updates !== undefined ? updates : base;
@@ -1580,19 +1584,62 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     const mergedServicios = incomingServicios !== undefined
       ? mergeServiciosById(current.servicios, incomingServicios)
       : current.servicios;
-    const mergedUsuarios = usuarios || current.usuarios;
-    const mergedMensajeros = Array.isArray(incoming.mensajeros) ? incoming.mensajeros : current.mensajeros;
+    let mergedUsuarios = usuarios || current.usuarios;
+    let mergedMensajeros = Array.isArray(incoming.mensajeros) ? incoming.mensajeros : current.mensajeros;
+    let mergedAuditoria = Array.isArray(incoming.auditoria) ? mergeAuditoriaConservador(current.auditoria, incoming.auditoria) : current.auditoria;
+    let mergedReportesRecibidos = Array.isArray(incoming.reportesRecibidos)
+      ? mergeReportesRecibidosConservador(current.reportesRecibidos, incoming.reportesRecibidos)
+      : current.reportesRecibidos;
+    let effectiveServicios = mergedServicios;
+
+    if (!isAdminUser) {
+      if (!Number.isFinite(userMsgId)) {
+        return res.status(403).json({ ok: false, message: 'Usuario sin mensajero asociado', reason: 'missing_msgid' });
+      }
+
+      const ownServiceIds = new Set(
+        (current.servicios || [])
+          .filter((s) => Number(s?.msgId) === userMsgId)
+          .map((s) => Number(s.id)),
+      );
+
+      const allowedPatch = (svc) => ({
+        id: Number(svc.id),
+        estatus: svc.estatus,
+        monto: svc.monto,
+        foto: svc.foto,
+        finalizadoPor: svc.finalizadoPor,
+        finalizadoEn: svc.finalizadoEn,
+        finalizadoReporte: svc.finalizadoReporte,
+        finalizadoResultado: svc.finalizadoResultado,
+        fotoFinal: svc.fotoFinal,
+        fotoFinalReemplazos: svc.fotoFinalReemplazos,
+        editadoPor: svc.editadoPor,
+        editadoEn: svc.editadoEn,
+        recordatoriosEnviadas: svc.recordatoriosEnviadas,
+      });
+
+      const messengerIncomingServicios = Array.isArray(incomingServicios)
+        ? incomingServicios
+          .filter((s) => Number.isFinite(Number(s?.id)) && ownServiceIds.has(Number(s.id)))
+          .map(allowedPatch)
+        : [];
+
+      effectiveServicios = mergeServiciosById(current.servicios, messengerIncomingServicios);
+      mergedUsuarios = current.usuarios;
+      mergedMensajeros = current.mensajeros;
+      mergedAuditoria = current.auditoria;
+      mergedReportesRecibidos = current.reportesRecibidos;
+    }
 
     const next = {
       ...current,
       ...incoming,
-      servicios: dedupeById(mergedServicios),
+      servicios: dedupeById(effectiveServicios),
       usuarios: dedupeById(mergedUsuarios),
       mensajeros: dedupeById(mergedMensajeros),
-      auditoria: Array.isArray(incoming.auditoria) ? mergeAuditoriaConservador(current.auditoria, incoming.auditoria) : current.auditoria,
-      reportesRecibidos: Array.isArray(incoming.reportesRecibidos)
-        ? mergeReportesRecibidosConservador(current.reportesRecibidos, incoming.reportesRecibidos)
-        : current.reportesRecibidos,
+      auditoria: mergedAuditoria,
+      reportesRecibidos: mergedReportesRecibidos,
       syncVersion: currentVersion + 1,
     };
 
