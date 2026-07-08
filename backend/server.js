@@ -592,6 +592,13 @@ async function notifyStateTransitions(currentState, nextState) {
 
     const isNew = !prev;
     const reassigned = prev && prev.msgId !== service.msgId;
+
+    // Fase 4/Refuerzo: queremos que el mensajero reciba el aviso lo más rápido posible.
+    // Regla:
+    // - Si el servicio es NUEVO y ya viene con msgId (asignado desde admin), avisar al msgId.
+    // - Si se reasigna (cambia msgId), avisar al nuevo msgId.
+    // - Si el servicio es NUEVO pero msgId NO viene (aún no asignado), NO podemos enviar al mensajero,
+    //   así que el aviso ocurrirá en el momento en que se asigne msgId.
     if ((isNew || reassigned) && service.msgId) {
       const eventKey = `srv:${service.id}:assigned:${service.msgId}`;
       const shouldSend = await recordPushEvent(eventKey);
@@ -621,6 +628,7 @@ async function notifyStateTransitions(currentState, nextState) {
     }
   }
 }
+
 
 async function processReminderPushes() {
   if (!firebaseMessaging) return;
@@ -1004,14 +1012,29 @@ async function saveState(state) {
   await ensureStorage();
   await run('BEGIN TRANSACTION');
   try {
-    await run('DELETE FROM usuarios');
-    await run('DELETE FROM mensajeros');
-    await run('DELETE FROM servicios');
-    await run('DELETE FROM auditoria');
-    await run('DELETE FROM reportesRecibidos');
-    await run('DELETE FROM meta');
+    // Fase 4: persistencia sin pérdidas.
+    // Evitamos borrar toda la DB en cada sync: los clientes pueden mandar payloads parciales,
+    // y si borramos podríamos perder datos que el cliente no incluyó.
+    // En lugar de DELETE+INSERT masivo, realizamos UPSERT por entidad.
 
-    const insertUsuario = 'INSERT INTO usuarios (id, nombre, username, pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?)';
+    // Usuarios: se sincroniza por id.
+    await run('CREATE UNIQUE INDEX IF NOT EXISTS usuarios_idx_id ON usuarios(id)');
+    // Mensajeros: se sincroniza por id.
+    await run('CREATE UNIQUE INDEX IF NOT EXISTS mensajeros_idx_id ON mensajeros(id)');
+    // Servicios: se sincroniza por id.
+    await run('CREATE UNIQUE INDEX IF NOT EXISTS servicios_idx_id ON servicios(id)');
+    // Auditoría: se sincroniza por srvId (si existe) o por combinación (ts, por, folio, msgNombre).
+    await run('CREATE INDEX IF NOT EXISTS auditoria_idx_srvId ON auditoria(srvId)');
+
+    // Reportes: se sincroniza por id (índice del arreglo enviado).
+    await run('CREATE UNIQUE INDEX IF NOT EXISTS reportes_idx_id ON reportesRecibidos(id)');
+
+    // Meta: se sincroniza por key.
+    await run('CREATE UNIQUE INDEX IF NOT EXISTS meta_idx_key ON meta(key)');
+
+    // Persistencia de usuarios.
+    const insertUsuario = 'INSERT INTO usuarios (id, nombre, username, pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET nombre = excluded.nombre, username = excluded.username, pass = excluded.pass, rol = excluded.rol, msgId = excluded.msgId';
+
     for (const u of state.usuarios || []) {
       await run(insertUsuario, [u.id, u.nombre, u.user, u.pass, u.rol, u.msgId]);
     }
