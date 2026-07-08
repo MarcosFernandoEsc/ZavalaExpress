@@ -798,9 +798,11 @@ async function iniciarPushNativo(){
     PushNotifications.addListener('pushNotificationReceived', notification => {
       const msg = notification?.body || notification?.title || 'Nuevo aviso';
       toast(msg);
+      actualizarEstadoRemoto().catch((e) => console.warn('Error actualizando estado tras push', e));
     });
 
     PushNotifications.addListener('pushNotificationActionPerformed', () => {
+      actualizarEstadoRemoto().catch((e) => console.warn('Error actualizando estado tras acción de push', e));
       renderInicio();
       renderServicios();
     });
@@ -830,6 +832,25 @@ function abrirDB(){
 function dbGet(k){return new Promise(r=>{if(!db){r(null);return;}const tx=db.transaction(STORE,'readonly');const rq=tx.objectStore(STORE).get(k);rq.onsuccess=()=>r(rq.result||null);rq.onerror=()=>r(null);});}
 function dbSet(k,v){return new Promise(r=>{if(!db){r();return;}const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(v,k);tx.oncomplete=()=>r();tx.onerror=()=>r();});}
 
+async function actualizarEstadoRemoto(){
+  if(!serverMode || !authToken) return;
+  try{
+    const res = await fetchApi('/api/zavala/state');
+    if(res && res.ok){
+      const latest = await res.json();
+      if(latest && latest.servicios!==undefined){
+        D = latest;
+        try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+        dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+        renderInicio();
+        renderServicios();
+      }
+    }
+  }catch(e){
+    console.warn('No se pudo actualizar estado remoto', e);
+  }
+}
+
 async function syncServidor(){
   if(!serverMode || !authToken)return;
   syncPending = true;
@@ -846,14 +867,22 @@ async function syncServidor(){
       });
       if(res && res.ok){
         lastSyncedPayload = payload;
+      } else if(res && res.status===409) {
+        await actualizarEstadoRemoto();
+        syncPending = false;
+        break;
       } else {
         console.warn('syncServidor failed', res ? res.status : 'no response');
-        syncPending = true;
+        if(res && res.status===401){
+          syncPending = false;
+          break;
+        }
+        syncPending = Boolean(authToken);
       }
     }
   }catch(e){
     console.warn('syncServidor error', e);
-    syncPending = true;
+    syncPending = Boolean(authToken);
   }
   finally{
     syncInFlight = false;
@@ -1183,7 +1212,8 @@ async function iniciarLoginRemoto(user, pin){
       if(data.state && data.state.servicios!==undefined){
         D = data.state;
       }
-      const found = data.usuario || (D.usuarios||[]).find(u => u.user===user);
+      const normalizedUser = String(loginUser || '').trim().toLowerCase();
+      const found = data.usuario || (D.usuarios||[]).find(u => String(u.user || u.username || u.usuario || '').trim().toLowerCase()===normalizedUser);
       if(found){
         pinUserSel = found;
         entrarConUsuario(found);
@@ -1286,6 +1316,8 @@ function iniciarVista(){
   actualizarDotAuditoria();
   checkRecordatorios();
   setInterval(checkRecordatorios, 60000);
+  actualizarEstadoRemoto().catch(()=>{});
+  setInterval(() => actualizarEstadoRemoto().catch(()=>{}), 15000);
   iniciarPushNativo();
 }
 

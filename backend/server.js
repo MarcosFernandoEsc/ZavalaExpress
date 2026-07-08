@@ -1174,13 +1174,17 @@ app.post('/api/zavala/login', async (req, res) => {
   }
 
   const userTrim = user.trim();
+  const loginNormalized = userTrim.toLowerCase();
   if (!userTrim || !pass.trim()) {
     return res.status(400).json({ ok: false, message: 'Usuario o PIN faltante' });
   }
 
   try {
     const state = await loadState();
-    const found = (state.usuarios || []).find((u) => u.user === userTrim && String(u.pass) === String(pass));
+    const found = (state.usuarios || []).find((u) => {
+      const storedUser = String(u.user ?? u.username ?? u.usuario ?? '').trim().toLowerCase();
+      return storedUser === loginNormalized && String(u.pass) === String(pass);
+    });
     if (!found) {
       return res.status(401).json({ ok: false, message: 'Usuario o PIN incorrecto' });
     }
