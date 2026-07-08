@@ -37,6 +37,7 @@ let db = null;
 let pgClient = null;
 let firebaseMessaging = null;
 let usePostgres = Boolean(process.env.DATABASE_URL);
+const sseClients = new Set();
 
 function initFirebaseMessaging() {
   if (firebaseMessaging) return;
@@ -845,6 +846,30 @@ function sanitizeState(state) {
   return safe;
 }
 
+function broadcastSse(event, payload) {
+  const serialized = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.res.write(serialized);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
+
+function broadcastStateUpdate(syncVersion, changedBy) {
+  broadcastSse('state_update', {
+    syncVersion: Number(syncVersion || 0),
+    changedBy: Number.isFinite(Number(changedBy)) ? Number(changedBy) : null,
+    ts: nowISO(),
+  });
+}
+
+setInterval(() => {
+  if (!sseClients.size) return;
+  broadcastSse('ping', { ts: nowISO() });
+}, 25000);
+
 
 function sendSecureHeaders(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -1151,6 +1176,33 @@ app.get('/health', (_req, res) => {
     status: 'advance',
     // Aumenta esto cuando quieras forzar compatibilidad por versión de app.
     backendVersion: 6,
+  });
+});
+
+app.get('/api/zavala/events', requireAuth, async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+
+  // Ask EventSource clients to retry quickly on disconnect.
+  res.write('retry: 3000\n\n');
+
+  try {
+    const current = await loadState();
+    res.write(`event: hello\ndata: ${JSON.stringify({ syncVersion: Number(current.syncVersion || 0), ts: nowISO() })}\n\n`);
+  } catch {
+    res.write(`event: hello\ndata: ${JSON.stringify({ syncVersion: 0, ts: nowISO() })}\n\n`);
+  }
+
+  const client = { res, userId: Number(req.user?.id) || null };
+  sseClients.add(client);
+
+  req.on('close', () => {
+    sseClients.delete(client);
   });
 });
 
@@ -1525,6 +1577,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     await saveState(next);
 
     notifyStateTransitions(current, next).catch((error) => console.error('Error enviando push de cambios:', error.message));
+    broadcastStateUpdate(next.syncVersion, req.user?.id);
     res.json({ ok: true, saved: true });
   } catch (error) {
     console.error(error);

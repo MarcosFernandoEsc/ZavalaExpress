@@ -801,6 +801,9 @@ let syncPending = false;
 let lastSyncedPayload = '';
 let pushListenersReady = false;
 let pushRegistrationReady = false;
+let remoteRefreshIntervalId = null;
+let stateEvents = null;
+let stateEventsReconnectTimer = null;
 
 async function iniciarPushNativo(){
   if(pushRegistrationReady) return;
@@ -885,8 +888,10 @@ async function actualizarEstadoRemoto(){
       const latest = await res.json();
       if(latest && latest.servicios!==undefined){
         D = latest;
+        if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
         localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));
         dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+        lastSyncedPayload = JSON.stringify(D);
         renderInicio();
         renderServicios();
       }
@@ -894,6 +899,58 @@ async function actualizarEstadoRemoto(){
   }catch(e){
     console.warn('No se pudo actualizar estado remoto', e);
   }
+}
+
+function stopRealtimeSync(){
+  if(stateEvents){
+    try{ stateEvents.close(); }catch{}
+    stateEvents = null;
+  }
+  if(stateEventsReconnectTimer){
+    clearTimeout(stateEventsReconnectTimer);
+    stateEventsReconnectTimer = null;
+  }
+}
+
+function iniciarRealtimeSync(){
+  if(!serverMode || !authToken || !sesion) return;
+  if(typeof EventSource==='undefined') return;
+  if(stateEvents) return;
+
+  const base = APP_CONFIG.apiBaseUrl.replace(/\/$/, '');
+  const url = `${base}/api/zavala/events?token=${encodeURIComponent(authToken)}`;
+  stateEvents = new EventSource(url);
+
+  stateEvents.addEventListener('hello', (evt) => {
+    try{
+      const data = JSON.parse(evt.data || '{}');
+      if(Number.isFinite(Number(data.syncVersion)) && Number(data.syncVersion) > Number(D.syncVersion||0)){
+        actualizarEstadoRemoto().catch(()=>{});
+      }
+    }catch{}
+  });
+
+  stateEvents.addEventListener('state_update', (evt) => {
+    try{
+      const data = JSON.parse(evt.data || '{}');
+      const nextVersion = Number(data.syncVersion||0);
+      if(Number.isFinite(nextVersion) && nextVersion > Number(D.syncVersion||0)){
+        actualizarEstadoRemoto().catch(()=>{});
+      }
+    }catch{
+      actualizarEstadoRemoto().catch(()=>{});
+    }
+  });
+
+  stateEvents.onerror = () => {
+    stopRealtimeSync();
+    if(serverMode && authToken){
+      stateEventsReconnectTimer = setTimeout(()=>{
+        stateEventsReconnectTimer = null;
+        iniciarRealtimeSync();
+      }, 3000);
+    }
+  };
 }
 
 async function syncServidor(){
@@ -914,11 +971,29 @@ async function syncServidor(){
         method:'POST',
         body:payload
       });
-      if(res && res.ok){
+      let body=null;
+      try{ body = await res.clone().json(); }catch{}
+
+      if(res && res.ok && (!body || body.ok!==false)){
         D.syncVersion = Number(D.syncVersion||1) + 1;
         lastSyncedPayload = payload;
       } else {
-        if(res && res.status===409){
+        const reason = body?.reason || null;
+        if((res && res.status===409) || reason==='sync_conflict' || reason==='backend_version_mismatch'){
+          if(body && body.state && body.state.servicios!==undefined){
+            D = body.state;
+            if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
+            localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));
+            dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+            lastSyncedPayload = JSON.stringify(D);
+          } else {
+            await actualizarEstadoRemoto();
+          }
+          toast('Se actualizó con la versión más reciente');
+          syncPending = false;
+          break;
+        }
+        if(reason==='missing_sync_version'){
           await actualizarEstadoRemoto();
           syncPending = false;
           break;
@@ -1288,6 +1363,11 @@ async function doLogout(){
   }
   saveAuthToken(null);
   saveSessionUser(null);
+  stopRealtimeSync();
+  if(remoteRefreshIntervalId){
+    clearInterval(remoteRefreshIntervalId);
+    remoteRefreshIntervalId = null;
+  }
   pushRegistrationReady=false;
   sesion=null;
   document.getElementById('li-pass').value='';
@@ -1331,8 +1411,10 @@ function iniciarVista(){
   checkRecordatorios();
   setInterval(checkRecordatorios, 60000);
   if(serverMode && authToken){
+    iniciarRealtimeSync();
     actualizarEstadoRemoto().catch(()=>{});
-    setInterval(() => actualizarEstadoRemoto().catch(()=>{}), 15000);
+    if(remoteRefreshIntervalId)clearInterval(remoteRefreshIntervalId);
+    remoteRefreshIntervalId = setInterval(() => actualizarEstadoRemoto().catch(()=>{}), 30000);
   }
   iniciarPushNativo();
 }
