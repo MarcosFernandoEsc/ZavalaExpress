@@ -1565,6 +1565,23 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
           // fallback: merge favoring incoming for fields it provides
           merged = { ...(existing || {}), ...u, id };
         }
+
+        // Regla de seguridad: una finalización ya registrada no debe revertirse por payloads atrasados.
+        const wasFinalized = Boolean(existing?.finalizadoPor);
+        const isIncomingFinalized = Boolean(u?.finalizadoPor);
+        if (wasFinalized && !isIncomingFinalized) {
+          merged.finalizadoPor = existing.finalizadoPor;
+          merged.finalizadoEn = existing.finalizadoEn;
+          merged.finalizadoReporte = existing.finalizadoReporte;
+          merged.finalizadoResultado = existing.finalizadoResultado;
+          merged.fotoFinal = existing.fotoFinal;
+          merged.fotoFinalReemplazos = existing.fotoFinalReemplazos;
+          merged.estatus = 'Finalizado';
+        }
+        if (merged.finalizadoPor) {
+          merged.estatus = 'Finalizado';
+        }
+
         out.push(normalizeIncomingService(merged));
         byId.delete(id);
       }
@@ -1682,6 +1699,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
         id: Number(svc.id),
         estatus: svc.estatus,
         monto: svc.monto,
+        updatedAt: svc.updatedAt,
         foto: svc.foto,
         finalizadoPor: svc.finalizadoPor,
         finalizadoEn: svc.finalizadoEn,
