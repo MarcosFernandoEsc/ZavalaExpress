@@ -758,6 +758,8 @@ async function fetchApi(path, options={}){
 let syncInFlight = false;
 let syncPending = false;
 let lastSyncedPayload = '';
+let hasUnsyncedLocalChanges = false;
+let syncBackoffMs = 0;
 
 function abrirDB(){
   return new Promise((res,rej)=>{
@@ -772,6 +774,7 @@ function dbSet(k,v){return new Promise(r=>{if(!db){r();return;}const tx=db.trans
 
 async function actualizarEstadoRemoto(){
   if(!serverMode || !authToken) return;
+  if(hasUnsyncedLocalChanges) return;
   try{
     const res = await fetchApi('/api/zavala/state');
     if(res && res.ok){
@@ -791,6 +794,11 @@ async function actualizarEstadoRemoto(){
 
 async function syncServidor(){
   if(!serverMode || !authToken)return;
+  if(syncBackoffMs>0){
+    setTimeout(()=>{ if(authToken) syncServidor(); }, syncBackoffMs);
+    syncBackoffMs = 0;
+    return;
+  }
   syncPending = true;
   if(syncInFlight)return;
   syncInFlight = true;
@@ -807,15 +815,46 @@ async function syncServidor(){
         method:'POST',
         body:payload
       });
-      if(res && res.ok){
+      let body=null;
+      try{ body = await res.clone().json(); }catch{}
+      if(res && res.ok && (!body || body.ok!==false)){
         lastSyncedPayload = payload;
-      } else if(res && res.status===409) {
-        await actualizarEstadoRemoto();
-        syncPending = false;
-        break;
+        hasUnsyncedLocalChanges = false;
+        syncBackoffMs = 0;
       } else {
+        const reason = body?.reason || null;
+        if((res && res.status===409) || reason==='sync_conflict' || reason==='backend_version_mismatch'){
+          if(body && body.state && body.state.servicios!==undefined){
+            D = body.state;
+            if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
+            try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+            dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+            lastSyncedPayload = JSON.stringify(D);
+          } else {
+            await actualizarEstadoRemoto();
+          }
+          hasUnsyncedLocalChanges = false;
+          syncBackoffMs = 0;
+          syncPending = false;
+          break;
+        }
+        if(reason==='missing_sync_version'){
+          await actualizarEstadoRemoto();
+          hasUnsyncedLocalChanges = false;
+          syncBackoffMs = 0;
+          syncPending = false;
+          break;
+        }
+        const detail = body?.detail || body?.message || '';
+        console.warn('syncServidor failed', res ? res.status : 'no response', detail);
         if(res && res.status===401){
           syncPending = false;
+          break;
+        }
+        if(res && res.status>=500){
+          syncPending = false;
+          syncBackoffMs = 3000;
+          setTimeout(()=>{ if(authToken && hasUnsyncedLocalChanges) syncServidor(); }, syncBackoffMs);
           break;
         }
         syncPending = Boolean(authToken);
@@ -831,7 +870,9 @@ async function syncServidor(){
 }
 
 function guardarTodo(){
+  if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
   const j=JSON.stringify(D);
+  hasUnsyncedLocalChanges = true;
   try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
   dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
   syncServidor();
@@ -849,6 +890,7 @@ let D={
   ],
   servicios:[],
   auditoria:[],   // papelera de evidencia — nunca se borra
+  syncVersion:1,
   nxtId:1,nxtFolio:1,nxtUsrId:2
 };
 
