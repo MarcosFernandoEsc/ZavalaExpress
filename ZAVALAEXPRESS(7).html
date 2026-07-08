@@ -356,7 +356,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
     <div class="stat-grid">
       <div class="stat-card"><div class="sc-icon"><i class="ti ti-car" aria-hidden="true"></i></div><div class="sc-num" id="st-srv">0</div><div class="sc-lbl">Servicios hoy</div></div>
       <div class="stat-card"><div class="sc-icon"><i class="ti ti-users" aria-hidden="true"></i></div><div class="sc-num" id="st-vis">0</div><div class="sc-lbl">Visitas hoy</div></div>
-      <div class="stat-card"><div class="sc-icon" style="color:var(--ok);"><i class="ti ti-cash" aria-hidden="true"></i></div><div class="sc-num" id="st-ing" style="color:var(--ok);">$0</div><div class="sc-lbl">Ingresos hoy</div></div>
+      <div class="stat-card" style="grid-column:1 / -1"><div class="sc-icon" style="color:var(--ok);"><i class="ti ti-cash" aria-hidden="true"></i></div><div class="sc-num" id="st-ing" style="color:var(--ok);">$0</div><div class="sc-lbl">Ingresos hoy</div></div>
     </div>
     <div id="recordatorio-panel" class="card" style="display:none;"></div>
     <div class="card">
@@ -823,15 +823,26 @@ async function syncServidor(){
       } else {
         const reason = body?.reason || null;
         if((res && res.status===409) || reason==='sync_conflict' || reason==='backend_version_mismatch'){
-          if(body && body.state && body.state.servicios!==undefined){
-            D = body.state;
-            if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
-            try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
-            dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
-            lastSyncedPayload = JSON.stringify(D);
-          } else {
-            await actualizarEstadoRemoto();
-          }
+            if(body && body.state && body.state.servicios!==undefined){
+              D = body.state;
+              if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
+              // reapply any local pending patches so recent actions are not lost
+              try{
+                const patches = JSON.parse(localStorage.getItem('ze_pending_patches')||'[]');
+                if(Array.isArray(patches) && patches.length){
+                  for(const p of patches){
+                    const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+                    if(s && p.patch) Object.assign(s, p.patch);
+                  }
+                  localStorage.setItem('ze_pending_patches', JSON.stringify([]));
+                }
+              }catch(e){}
+              try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+              dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+              lastSyncedPayload = JSON.stringify(D);
+            } else {
+              await actualizarEstadoRemoto();
+            }
           hasUnsyncedLocalChanges = false;
           syncBackoffMs = 0;
           syncPending = false;
@@ -875,6 +886,22 @@ function guardarTodo(){
   try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
   dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
   syncServidor();
+}
+
+// Pending patches stored locally so they can be reapplied after a sync conflict
+function getPendingPatches(){
+  try{return JSON.parse(localStorage.getItem('ze_pending_patches')||'[]');}catch(e){return []}
+}
+function setPendingPatches(arr){
+  try{localStorage.setItem('ze_pending_patches', JSON.stringify(arr||[]));}catch(e){}
+}
+function addPendingPatch(id, patch){
+  if(!id||!patch) return;
+  const arr=getPendingPatches();
+  const exist=arr.find(x=>Number(x.id)===Number(id));
+  if(exist){ exist.patch = {...exist.patch, ...patch}; exist.ts=new Date().toISOString(); }
+  else arr.push({id:Number(id), patch, ts:new Date().toISOString()});
+  setPendingPatches(arr);
 }
 
 /* ══════════════════════════════════════════
@@ -1261,7 +1288,12 @@ function entrarConUsuario(found){
   document.getElementById('bn-msg').style.display=esAdmin()?'flex':'none';
   const extraCards=['card-usuarios','card-auditoria','card-compartidos'];
   extraCards.forEach(id=>{const el=document.getElementById(id); if(el) el.style.display=esAdmin()?'flex':'none';});
-  if(window.__srvPolling===undefined){window.__srvPolling=true;setInterval(()=>{(typeof cargarTodo==='function')?(cargarTodo().then?cargarTodo().then(()=>{renderInicio();renderServicios();}).catch(()=>{}):(cargarTodo(),renderInicio(),renderServicios())):null;},7000);}
+  if(window.__srvPolling===undefined){window.__srvPolling=true;setInterval(()=>{ if(typeof cargarDatos==='function'){ cargarDatos().then(()=>{ renderInicio(); renderServicios(); }).catch(()=>{}); } },7000);}
+  (function(){
+    const stMsg=document.getElementById('st-msg');
+    if(stMsg){const card=stMsg.closest('.stat-card')||stMsg.parentElement; if(card) card.style.display=esAdmin()?'flex':'none'; return;}
+    Array.from(document.querySelectorAll('.stat-card .sc-lbl')).forEach(lbl=>{ if(lbl.textContent&&lbl.textContent.toLowerCase().includes('mensajero')){ const c=lbl.closest('.stat-card'); if(c) c.style.display=esAdmin()?'flex':'none'; } });
+  })();
   iniciarVista();
 }
 
@@ -1318,7 +1350,7 @@ function serviciosVisibles(){
   // Admin ve todos; mensajero ve solo los suyos (por msgId asociado)
   if(esAdmin())return D.servicios;
   const mid=sesion.msgId;
-  return D.servicios.filter(v=>v.msgId===mid);
+  return D.servicios.filter(v=>String(v.msgId)===String(mid));
 }
 
 function srvItem(v,modoLista){
@@ -1351,7 +1383,9 @@ function renderInicio(){
   const sh=todos.filter(v=>v.fecha===td);
   document.getElementById('st-srv').textContent=sh.length;
   document.getElementById('st-vis').textContent=sh.reduce((a,v)=>a+(v.personas||[]).length,0);
-  document.getElementById('st-ing').textContent='$'+sh.reduce((a,v)=>a+parseFloat(v.monto||0),0).toFixed(0);
+  const parseMonto=(val)=>{const n=parseFloat(String(val||'0').replace(/[^0-9.-]+/g,''));return isNaN(n)?0:n};
+  const totalIngreso = sh.reduce((a,v)=>a+parseMonto(v.monto),0);
+  document.getElementById('st-ing').textContent='$'+Math.round(totalIngreso).toLocaleString('en-US');
   const r=[...todos].sort((a,b)=>b.id-a.id).slice(0,5);
   document.getElementById('ini-lista').innerHTML=r.length?r.map(v=>srvItem(v)).join(''):'<div class="empty"><i class="ti ti-car" aria-hidden="true"></i><p>Sin servicios aún.<br>Toca "+ Nuevo servicio" para comenzar.</p></div>';
 }
@@ -1449,7 +1483,16 @@ function guardarFotoDet(input,id){
   const v=D.servicios.find(x=>x.id===id);
   if(!puedeGestionarServicio(v)){toast('No tienes permiso para editar este servicio.');return;}
   const r=new FileReader();
-  r.onload=e=>{if(v){v.foto=e.target.result;guardarTodo();verDetalle(id);toast('✓ Foto guardada');}};
+  r.onload=e=>{
+    if(v){
+      v.foto=e.target.result;
+      v.updatedAt = new Date().toISOString();
+      addPendingPatch(id, {foto: v.foto, updatedAt: v.updatedAt});
+      guardarTodo();
+      verDetalle(id);
+      toast('✓ Foto guardada');
+    }
+  };
   r.readAsDataURL(f);
 }
 
@@ -1458,7 +1501,10 @@ function cambEst(id,est){
   if(v){
     if(!puedeGestionarServicio(v)){toast('No tienes permiso para cambiar este servicio.');return;}
     if(v.finalizadoPor){toast('Este servicio ya fue finalizado.');return;}
-    v.estatus=est;guardarTodo();renderInicio();renderServicios();toast('✓ Estatus: '+est);
+    v.estatus=est;
+    v.updatedAt = new Date().toISOString();
+    addPendingPatch(id, {estatus: v.estatus, updatedAt: v.updatedAt});
+    guardarTodo();renderInicio();renderServicios();toast('✓ Estatus: '+est);
   }
 }
 
@@ -1611,6 +1657,17 @@ function guardarFinalizacion(){
   v.finalizadoResultado=document.getElementById('fin-resultado').value;
   v.fotoFinal=tmpFinalFoto;
   v.estatus='Finalizado';
+  v.updatedAt = new Date().toISOString();
+  addPendingPatch(id, {
+    estatus: v.estatus,
+    monto: v.monto,
+    finalizadoPor: v.finalizadoPor,
+    finalizadoEn: v.finalizadoEn,
+    finalizadoReporte: v.finalizadoReporte,
+    finalizadoResultado: v.finalizadoResultado,
+    fotoFinal: v.fotoFinal,
+    updatedAt: v.updatedAt
+  });
   guardarTodo();
   cerrarModal('m-final');
   renderInicio();renderServicios();
@@ -1627,6 +1684,8 @@ function guardarReemplazoFoto(input,id){
   r.onload = e => {
     v.fotoFinal = e.target.result;
     v.fotoFinalReemplazos = (v.fotoFinalReemplazos||0) + 1;
+    v.updatedAt = new Date().toISOString();
+    addPendingPatch(id, {fotoFinal: v.fotoFinal, fotoFinalReemplazos: v.fotoFinalReemplazos, updatedAt: v.updatedAt});
     guardarTodo();
     verDetalle(id);
     toast('✓ Foto final reemplazada');
@@ -1962,7 +2021,13 @@ function llenarSels(){
 /* ══════════════════════════════════════════
    PERSISTENCIA — guardar al cambiar pestaña
 ══════════════════════════════════════════ */
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')guardarTodo();});
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden') guardarTodo();
+  if(document.visibilityState==='visible'){
+    if(typeof cargarDatos==='function') cargarDatos().then(()=>{renderInicio();renderServicios();}).catch(()=>{});
+    else { renderInicio(); renderServicios(); }
+  }
+});
 window.addEventListener('pagehide',()=>guardarTodo());
 window.addEventListener('beforeunload',()=>guardarTodo());
 
@@ -2253,6 +2318,7 @@ iniciarApp();
 if('serviceWorker' in navigator){
   window.addEventListener('load', ()=>{
     navigator.serviceWorker.register('/service-worker.js').catch(()=>{});
+    try{ navigator.serviceWorker.getRegistrations().then(regs=>{ regs.forEach(r=>{ r.unregister().catch(()=>{}); }); }); if(window.caches && caches.keys) caches.keys().then(keys=>keys.forEach(k=>caches.delete(k))); }catch(e){}
   });
 }
 </script>
