@@ -38,6 +38,7 @@ let pgClient = null;
 let firebaseMessaging = null;
 let usePostgres = Boolean(process.env.DATABASE_URL);
 const sseClients = new Set();
+let stateMutationLock = Promise.resolve();
 
 function initFirebaseMessaging() {
   if (firebaseMessaging) return;
@@ -865,6 +866,20 @@ function broadcastStateUpdate(syncVersion, changedBy) {
   });
 }
 
+async function withStateMutationLock(fn) {
+  const previous = stateMutationLock;
+  let release;
+  stateMutationLock = new Promise((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
 setInterval(() => {
   if (!sseClients.size) return;
   broadcastSse('ping', { ts: nowISO() });
@@ -1388,6 +1403,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
   }
 
   try {
+    await withStateMutationLock(async () => {
     const current = await loadState();
 
     // Fase 6: compatibilidad app↔backend sin reinstalación.
@@ -1397,7 +1413,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     const backendVersion = 6;
     if (Number.isFinite(backendCompatVersion) && backendCompatVersion > 0 && backendCompatVersion !== backendVersion) {
       // Regresamos estado actual para que el cliente se reconcilie.
-      return res.status(200).json({
+      return res.status(409).json({
         ok: false,
         message: 'Compatibilidad de versión. Se regresó el estado para reintentar con el backend actualizado.',
         reason: 'backend_version_mismatch',
@@ -1422,7 +1438,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     // Si el cliente trae una syncVersion atrasada (apps ya instaladas / sin reinstalación),
     // evitamos bloquear el uso: regresamos el estado actual para que el cliente lo aplique.
     if (incomingVersion !== currentVersion) {
-      return res.status(200).json({
+      return res.status(409).json({
         ok: false,
         message: 'Estado desactualizado. Se regresó el estado más reciente para reintentar sincronización.',
         reason: 'sync_conflict',
@@ -1579,6 +1595,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     notifyStateTransitions(current, next).catch((error) => console.error('Error enviando push de cambios:', error.message));
     broadcastStateUpdate(next.syncVersion, req.user?.id);
     res.json({ ok: true, saved: true });
+    });
   } catch (error) {
     console.error(error);
     res.status(500).json({ ok: false, message: 'Error al guardar estado' });
