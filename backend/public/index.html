@@ -886,32 +886,34 @@ async function actualizarEstadoRemoto(){
   if(hasUnsyncedLocalChanges) return;
   try{
     const res = await fetchApi('/api/zavala/state');
-        if(r && r.ok){
-          const srv=await r.json();
-          if(srv&&srv.servicios!==undefined){
-            srv.usuarios = Array.isArray(srv.usuarios)
-              ? srv.usuarios.map((u) => ({
-                  ...u,
-                  id: Number(u.id),
-                  msgId: u.msgId === null ? null : Number(u.msgId),
-                }))
-              : [];
-            D=srv;
-            try{
-              const patches = getPendingPatches();
-              if(Array.isArray(patches) && patches.length){
-                for(const p of patches){
-                  const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
-                  if(s && p.patch) Object.assign(s, p.patch);
-                }
-                setPendingPatches([]);
-                try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
-                dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
-              }
-            }catch(e){}
-            return;
+    if(res && res.ok){
+      const srv=await res.json();
+      if(srv&&srv.servicios!==undefined){
+        srv.usuarios = Array.isArray(srv.usuarios)
+          ? srv.usuarios.map((u) => ({
+              ...u,
+              id: Number(u.id),
+              msgId: u.msgId === null ? null : Number(u.msgId),
+            }))
+          : [];
+        D=srv;
+        try{
+          const patches = getPendingPatches();
+          if(Array.isArray(patches) && patches.length){
+            for(const p of patches){
+              const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+              if(s && p.patch) Object.assign(s, p.patch);
+            }
           }
-        }
+        }catch(e){}
+        try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+        dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+        renderInicio();
+        renderServicios();
+      }
+    }
+  }catch(e){
+    console.warn('No se pudo actualizar estado remoto', e);
   }
 }
 
@@ -996,6 +998,7 @@ async function syncServidor(){
       if(res && res.ok && (!body || body.ok!==false)){
         D.syncVersion = Number(D.syncVersion||1) + 1;
         lastSyncedPayload = payload;
+        setPendingPatches([]);
         hasUnsyncedLocalChanges = false;
         syncBackoffMs = 0;
       } else {
@@ -1013,27 +1016,47 @@ async function syncServidor(){
                     Object.assign(s, p.patch);
                   }
                 }
-                // clear pending patches after reapply
-                setPendingPatches([]);
               }
               localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));
               dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
-              lastSyncedPayload = JSON.stringify(D);
             } else {
+              const previousUnsynced = hasUnsyncedLocalChanges;
+              hasUnsyncedLocalChanges = false;
               await actualizarEstadoRemoto();
+              hasUnsyncedLocalChanges = previousUnsynced;
             }
-          hasUnsyncedLocalChanges = false;
+          lastSyncedPayload = '';
+          hasUnsyncedLocalChanges = true;
           syncBackoffMs = 0;
-          toast('Se actualizó con la versión más reciente');
-          syncPending = false;
-          break;
+          syncPending = true;
+          continue;
         }
         if(reason==='missing_sync_version'){
-          await actualizarEstadoRemoto();
-          hasUnsyncedLocalChanges = false;
+          if(body && body.state && body.state.servicios!==undefined){
+            D = body.state;
+            if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
+          } else {
+            const previousUnsynced = hasUnsyncedLocalChanges;
+            hasUnsyncedLocalChanges = false;
+            await actualizarEstadoRemoto();
+            hasUnsyncedLocalChanges = previousUnsynced;
+          }
+          const patches = getPendingPatches();
+          if(Array.isArray(patches) && patches.length){
+            for(const p of patches){
+              const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+              if(s && p.patch && typeof p.patch==='object'){
+                Object.assign(s, p.patch);
+              }
+            }
+          }
+          localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));
+          dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+          lastSyncedPayload = '';
+          hasUnsyncedLocalChanges = true;
           syncBackoffMs = 0;
-          syncPending = false;
-          break;
+          syncPending = true;
+          continue;
         }
         const detail = body?.detail || body?.message || '';
         console.warn('syncServidor failed', res ? res.status : 'no response', detail);
@@ -1110,6 +1133,7 @@ async function cargarDatos(){
   if(APP_CONFIG.apiBaseUrl){
     try{
       if(authToken){
+        if(hasUnsyncedLocalChanges) return;
         const r=await fetchApi('/api/zavala/state');
         if(r && r.ok){
           const srv=await r.json();
@@ -1123,6 +1147,17 @@ async function cargarDatos(){
                 }))
               : [];
             D=srv;
+            try{
+              const patches = getPendingPatches();
+              if(Array.isArray(patches) && patches.length){
+                for(const p of patches){
+                  const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+                  if(s && p.patch && typeof p.patch==='object'){
+                    Object.assign(s, p.patch);
+                  }
+                }
+              }
+            }catch(e){}
             return;
           }
         }

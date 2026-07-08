@@ -818,6 +818,7 @@ async function syncServidor(){
       try{ body = await res.clone().json(); }catch{}
       if(res && res.ok && (!body || body.ok!==false)){
         lastSyncedPayload = payload;
+        setPendingPatches([]);
         hasUnsyncedLocalChanges = false;
         syncBackoffMs = 0;
       } else {
@@ -827,33 +828,55 @@ async function syncServidor(){
               D = body.state;
               if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
               // reapply any local pending patches so recent actions are not lost
-              try{
-                const patches = JSON.parse(localStorage.getItem('ze_pending_patches')||'[]');
-                if(Array.isArray(patches) && patches.length){
-                  for(const p of patches){
-                    const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
-                    if(s && p.patch) Object.assign(s, p.patch);
+              const patches = getPendingPatches();
+              if(Array.isArray(patches) && patches.length){
+                for(const p of patches){
+                  const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+                  if(s && p.patch && typeof p.patch==='object'){
+                    Object.assign(s, p.patch);
                   }
-                  localStorage.setItem('ze_pending_patches', JSON.stringify([]));
                 }
-              }catch(e){}
+              }
               try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
               dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
-              lastSyncedPayload = JSON.stringify(D);
             } else {
+              const previousUnsynced = hasUnsyncedLocalChanges;
+              hasUnsyncedLocalChanges = false;
               await actualizarEstadoRemoto();
+              hasUnsyncedLocalChanges = previousUnsynced;
             }
-          hasUnsyncedLocalChanges = false;
+          lastSyncedPayload = '';
+          hasUnsyncedLocalChanges = true;
           syncBackoffMs = 0;
-          syncPending = false;
-          break;
+          syncPending = true;
+          continue;
         }
         if(reason==='missing_sync_version'){
-          await actualizarEstadoRemoto();
-          hasUnsyncedLocalChanges = false;
+          if(body && body.state && body.state.servicios!==undefined){
+            D = body.state;
+            if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
+          } else {
+            const previousUnsynced = hasUnsyncedLocalChanges;
+            hasUnsyncedLocalChanges = false;
+            await actualizarEstadoRemoto();
+            hasUnsyncedLocalChanges = previousUnsynced;
+          }
+          const patches = getPendingPatches();
+          if(Array.isArray(patches) && patches.length){
+            for(const p of patches){
+              const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+              if(s && p.patch && typeof p.patch==='object'){
+                Object.assign(s, p.patch);
+              }
+            }
+          }
+          try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+          dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+          lastSyncedPayload = '';
+          hasUnsyncedLocalChanges = true;
           syncBackoffMs = 0;
-          syncPending = false;
-          break;
+          syncPending = true;
+          continue;
         }
         const detail = body?.detail || body?.message || '';
         console.warn('syncServidor failed', res ? res.status : 'no response', detail);
@@ -930,6 +953,7 @@ async function cargarDatos(){
   if(APP_CONFIG.apiBaseUrl){
     try{
       if(authToken){
+        if(hasUnsyncedLocalChanges) return;
         const r=await fetchApi('/api/zavala/state');
         if(r && r.ok){
           const srv=await r.json();
@@ -949,7 +973,6 @@ async function cargarDatos(){
                   const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
                   if(s && p.patch) Object.assign(s, p.patch);
                 }
-                setPendingPatches([]);
                 try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
                 dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
               }
