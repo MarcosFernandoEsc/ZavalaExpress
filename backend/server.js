@@ -1493,11 +1493,21 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
         if (!u || !Number.isFinite(Number(u.id))) continue;
         const id = Number(u.id);
         const existing = byId.get(id);
-        const merged = {
-          ...(existing || {}),
-          ...u,
-          id,
-        };
+        // If both have updatedAt, prefer the newer one for field values.
+        let merged;
+        const existingUpdated = existing && existing.updatedAt ? Date.parse(existing.updatedAt) : 0;
+        const incomingUpdated = u && u.updatedAt ? Date.parse(u.updatedAt) : 0;
+        if (existing && existingUpdated && incomingUpdated) {
+          if (incomingUpdated >= existingUpdated) {
+            merged = { ...(existing || {}), ...u, id };
+          } else {
+            // existing is newer: keep its values and fill missing fields from incoming
+            merged = { ...u, ...(existing || {}), id };
+          }
+        } else {
+          // fallback: merge favoring incoming for fields it provides
+          merged = { ...(existing || {}), ...u, id };
+        }
         out.push(normalizeIncomingService(merged));
         byId.delete(id);
       }

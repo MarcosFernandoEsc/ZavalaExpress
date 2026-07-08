@@ -886,20 +886,32 @@ async function actualizarEstadoRemoto(){
   if(hasUnsyncedLocalChanges) return;
   try{
     const res = await fetchApi('/api/zavala/state');
-    if(res && res.ok){
-      const latest = await res.json();
-      if(latest && latest.servicios!==undefined){
-        D = latest;
-        if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
-        localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));
-        dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
-        lastSyncedPayload = JSON.stringify(D);
-        renderInicio();
-        renderServicios();
-      }
-    }
-  }catch(e){
-    console.warn('No se pudo actualizar estado remoto', e);
+        if(r && r.ok){
+          const srv=await r.json();
+          if(srv&&srv.servicios!==undefined){
+            srv.usuarios = Array.isArray(srv.usuarios)
+              ? srv.usuarios.map((u) => ({
+                  ...u,
+                  id: Number(u.id),
+                  msgId: u.msgId === null ? null : Number(u.msgId),
+                }))
+              : [];
+            D=srv;
+            try{
+              const patches = getPendingPatches();
+              if(Array.isArray(patches) && patches.length){
+                for(const p of patches){
+                  const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+                  if(s && p.patch) Object.assign(s, p.patch);
+                }
+                setPendingPatches([]);
+                try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+                dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+              }
+            }catch(e){}
+            return;
+          }
+        }
   }
 }
 

@@ -952,7 +952,23 @@ async function cargarDatos(){
         const r=await fetchApi('/api/zavala/state');
         if(r && r.ok){
           const srv=await r.json();
-          if(srv&&srv.servicios!==undefined){D=srv;return;}
+          if(srv&&srv.servicios!==undefined){
+            D=srv;
+            // Reapply any pending local patches saved before closing app
+            try{
+              const patches = getPendingPatches();
+              if(Array.isArray(patches) && patches.length){
+                for(const p of patches){
+                  const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+                  if(s && p.patch) Object.assign(s, p.patch);
+                }
+                setPendingPatches([]);
+                try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+                dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+              }
+            }catch(e){}
+            return;
+          }
         }
       } else {
         const ru=await fetchApi('/api/zavala/users');

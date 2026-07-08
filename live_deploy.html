@@ -966,6 +966,18 @@ async function cargarDatos(){
                 }))
               : [];
             D=srv;
+            try{
+              const patches = (function(){try{return JSON.parse(localStorage.getItem('ze_pending_patches')||'[]')}catch(e){return []}})();
+              if(Array.isArray(patches) && patches.length){
+                for(const p of patches){
+                  const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+                  if(s && p.patch) Object.assign(s, p.patch);
+                }
+                localStorage.setItem('ze_pending_patches', JSON.stringify([]));
+                try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(D));}catch(e){}
+                dbSet('app', D).catch(()=>{});
+              }
+            }catch(e){}
             return;
           }
         }

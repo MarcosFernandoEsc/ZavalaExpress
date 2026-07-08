@@ -942,6 +942,18 @@ async function cargarDatos(){
                 }))
               : [];
             D=srv;
+            try{
+              const patches = getPendingPatches();
+              if(Array.isArray(patches) && patches.length){
+                for(const p of patches){
+                  const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
+                  if(s && p.patch) Object.assign(s, p.patch);
+                }
+                setPendingPatches([]);
+                try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+                dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+              }
+            }catch(e){}
             return;
           }
         }
