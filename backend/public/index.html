@@ -333,7 +333,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
     <div class="stat-grid">
       <div class="stat-card"><div class="sc-icon"><i class="ti ti-car" aria-hidden="true"></i></div><div class="sc-num" id="st-srv">0</div><div class="sc-lbl">Servicios hoy</div></div>
       <div class="stat-card"><div class="sc-icon"><i class="ti ti-users" aria-hidden="true"></i></div><div class="sc-num" id="st-vis">0</div><div class="sc-lbl">Visitas hoy</div></div>
-      <div class="stat-card" style="grid-column:1 / -1"><div class="sc-icon" style="color:var(--ok);"><i class="ti ti-cash" aria-hidden="true"></i></div><div class="sc-num" id="st-ing" style="color:var(--ok);">$0</div><div class="sc-lbl">Ingresos hoy</div></div>
+      <div class="stat-card" id="card-ing-hoy" style="grid-column:1 / -1"><div class="sc-icon" style="color:var(--ok);"><i class="ti ti-cash" aria-hidden="true"></i></div><div class="sc-num" id="st-ing" style="color:var(--ok);">$0</div><div class="sc-lbl">Ingresos hoy</div></div>
     </div>
     <div id="recordatorio-panel" class="card" style="display:none;"></div>
     <div class="card">
@@ -1577,7 +1577,10 @@ function renderInicio(){
   document.getElementById('st-vis').textContent=sh.reduce((a,v)=>a+(v.personas||[]).length,0);
   const parseMonto=(val)=>{const n=parseFloat(String(val||'0').replace(/[^0-9.-]+/g,''));return isNaN(n)?0:n};
   const totalIngreso = sh.reduce((a,v)=>a+parseMonto(v.monto),0);
-  document.getElementById('st-ing').textContent='$'+Math.round(totalIngreso).toLocaleString('en-US');
+  const cardIng=document.getElementById('card-ing-hoy');
+  if(cardIng)cardIng.style.display=esAdmin()?'none':'block';
+  const stIng=document.getElementById('st-ing');
+  if(stIng)stIng.textContent='$'+Math.round(totalIngreso).toLocaleString('en-US');
   const r=[...todos].sort((a,b)=>b.id-a.id).slice(0,5);
   document.getElementById('ini-lista').innerHTML=r.length?r.map(v=>srvItem(v)).join(''):'<div class="empty"><i class="ti ti-car" aria-hidden="true"></i><p>Sin servicios aún.<br>Toca "+ Nuevo servicio" para comenzar.</p></div>';
 }
