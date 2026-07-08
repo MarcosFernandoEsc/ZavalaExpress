@@ -355,7 +355,6 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
   <div class="pull-up">
     <div class="stat-grid">
       <div class="stat-card"><div class="sc-icon"><i class="ti ti-car" aria-hidden="true"></i></div><div class="sc-num" id="st-srv">0</div><div class="sc-lbl">Servicios hoy</div></div>
-      <div class="stat-card"><div class="sc-icon"><i class="ti ti-user-circle" aria-hidden="true"></i></div><div class="sc-num" id="st-msg">0</div><div class="sc-lbl">Mensajeros activos</div></div>
       <div class="stat-card"><div class="sc-icon"><i class="ti ti-users" aria-hidden="true"></i></div><div class="sc-num" id="st-vis">0</div><div class="sc-lbl">Visitas hoy</div></div>
       <div class="stat-card"><div class="sc-icon" style="color:var(--ok);"><i class="ti ti-cash" aria-hidden="true"></i></div><div class="sc-num" id="st-ing" style="color:var(--ok);">$0</div><div class="sc-lbl">Ingresos hoy</div></div>
     </div>
@@ -1234,10 +1233,19 @@ function entrarConUsuario(found){
   document.getElementById('bn-compartidos').style.display=esAdmin()?'flex':'none';
   document.getElementById('ftab-eliminados').style.display=esAdmin()?'block':'none';
   document.getElementById('btn-add-msg').style.display=esAdmin()?'flex':'none';
+  document.getElementById('bn-msg').style.display=esAdmin()?'flex':'none';
   document.getElementById('fg-mensajero').style.display=esAdmin()?'flex':'none';
   // Ocultar selector de mensajero en reportes para mensajeros (ven solo el suyo)
   const rptMsgContainer=document.querySelector('.pull-up #rpt-msg')?.closest('.fg');
   if(rptMsgContainer)rptMsgContainer.style.display=esAdmin()?'flex':'none';
+  // Ocultar tarjetas adicionales del dashboard para no-admins
+  const extraCards=['card-usuarios','card-auditoria','card-compartidos'];
+  extraCards.forEach(id=>{const el=document.getElementById(id); if(el) el.style.display=esAdmin()?'flex':'none';});
+  // Polling ligero para refrescar servicios y estadísticas cada 7 segundos
+  if(window.__srvPolling===undefined){
+    window.__srvPolling=true;
+    setInterval(()=>{(typeof cargarTodo==='function')?(cargarTodo().then?cargarTodo().then(()=>{renderInicio();renderServicios();}).catch(()=>{}):(cargarTodo(),renderInicio(),renderServicios())):null;},7000);
+  }
   iniciarVista();
 }
 
@@ -1339,7 +1347,6 @@ function renderInicio(){
   const todos=serviciosVisibles().filter(v=>!v.eliminadoPor);
   const sh=todos.filter(v=>v.fecha===td);
   document.getElementById('st-srv').textContent=sh.length;
-  document.getElementById('st-msg').textContent=new Set(sh.map(v=>v.msgId)).size;
   document.getElementById('st-vis').textContent=sh.reduce((a,v)=>a+(v.personas||[]).length,0);
   document.getElementById('st-ing').textContent='$'+sh.reduce((a,v)=>a+parseFloat(v.monto||0),0).toFixed(0);
   const r=[...todos].sort((a,b)=>b.id-a.id).slice(0,5);
