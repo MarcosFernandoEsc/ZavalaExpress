@@ -758,6 +758,8 @@ async function fetchApi(path, options={}){
 let syncInFlight = false;
 let syncPending = false;
 let lastSyncedPayload = '';
+let hasUnsyncedLocalChanges = false;
+let syncBackoffMs = 0;
 
 function abrirDB(){
   return new Promise((res,rej)=>{
@@ -772,6 +774,7 @@ function dbSet(k,v){return new Promise(r=>{if(!db){r();return;}const tx=db.trans
 
 async function actualizarEstadoRemoto(){
   if(!serverMode || !authToken) return;
+  if(hasUnsyncedLocalChanges) return;
   try{
     const res = await fetchApi('/api/zavala/state');
     if(res && res.ok){
@@ -791,6 +794,11 @@ async function actualizarEstadoRemoto(){
 
 async function syncServidor(){
   if(!serverMode || !authToken)return;
+  if(syncBackoffMs>0){
+    setTimeout(()=>{ if(authToken) syncServidor(); }, syncBackoffMs);
+    syncBackoffMs = 0;
+    return;
+  }
   syncPending = true;
   if(syncInFlight)return;
   syncInFlight = true;
@@ -807,15 +815,46 @@ async function syncServidor(){
         method:'POST',
         body:payload
       });
-      if(res && res.ok){
+      let body=null;
+      try{ body = await res.clone().json(); }catch{}
+      if(res && res.ok && (!body || body.ok!==false)){
         lastSyncedPayload = payload;
-      } else if(res && res.status===409) {
-        await actualizarEstadoRemoto();
-        syncPending = false;
-        break;
+        hasUnsyncedLocalChanges = false;
+        syncBackoffMs = 0;
       } else {
+        const reason = body?.reason || null;
+        if((res && res.status===409) || reason==='sync_conflict' || reason==='backend_version_mismatch'){
+          if(body && body.state && body.state.servicios!==undefined){
+            D = body.state;
+            if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
+            try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
+            dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+            lastSyncedPayload = JSON.stringify(D);
+          } else {
+            await actualizarEstadoRemoto();
+          }
+          hasUnsyncedLocalChanges = false;
+          syncBackoffMs = 0;
+          syncPending = false;
+          break;
+        }
+        if(reason==='missing_sync_version'){
+          await actualizarEstadoRemoto();
+          hasUnsyncedLocalChanges = false;
+          syncBackoffMs = 0;
+          syncPending = false;
+          break;
+        }
+        const detail = body?.detail || body?.message || '';
+        console.warn('syncServidor failed', res ? res.status : 'no response', detail);
         if(res && res.status===401){
           syncPending = false;
+          break;
+        }
+        if(res && res.status>=500){
+          syncPending = false;
+          syncBackoffMs = 3000;
+          setTimeout(()=>{ if(authToken && hasUnsyncedLocalChanges) syncServidor(); }, syncBackoffMs);
           break;
         }
         syncPending = Boolean(authToken);
@@ -831,7 +870,9 @@ async function syncServidor(){
 }
 
 function guardarTodo(){
+  if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
   const j=JSON.stringify(D);
+  hasUnsyncedLocalChanges = true;
   try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
   dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
   syncServidor();
@@ -849,6 +890,7 @@ let D={
   ],
   servicios:[],
   auditoria:[],   // papelera de evidencia — nunca se borra
+  syncVersion:1,
   nxtId:1,nxtFolio:1,nxtUsrId:2
 };
 
@@ -1014,6 +1056,12 @@ function estadoServicio(v){return v&&v.finalizadoPor?'Finalizado':(v&&v.estatus)
 function puedeFinalizar(v){
   if(!v||v.finalizadoPor||!sesion||sesion.msgId!==v.msgId) return false;
   return v.fecha&&v.fecha<=hoy();
+}
+
+function puedeGestionarServicio(v){
+  if(!v||v.eliminadoPor) return false;
+  if(esAdmin()) return true;
+  return !!(sesion && sesion.rol==='mensajero' && Number(sesion.msgId)===Number(v.msgId));
 }
 function crearMensajeroSiFalta(nombre){
   const limpio=(nombre||'').trim();
@@ -1204,6 +1252,7 @@ function entrarConUsuario(found){
   document.getElementById('bn-usuarios').style.display=esAdmin()?'flex':'none';
   document.getElementById('bn-auditoria').style.display=esAdmin()?'flex':'none';
   document.getElementById('bn-compartidos').style.display=esAdmin()?'flex':'none';
+  document.getElementById('bn-msg').style.display=esAdmin()?'flex':'none';
   document.getElementById('ftab-eliminados').style.display=esAdmin()?'block':'none';
   document.getElementById('btn-add-msg').style.display=esAdmin()?'flex':'none';
   document.getElementById('fg-mensajero').style.display=esAdmin()?'flex':'none';
@@ -1341,6 +1390,9 @@ function verDetalle(id){
   const puedeEditar=!elim&&esAdmin();
   const puedeElim=!elim&&esAdmin();
   const puedeCerrar=puedeFinalizar(v);
+  const puedeGestionar=puedeGestionarServicio(v);
+  const puedeCambiarEstatus=puedeGestionar&&!v.finalizadoPor;
+  const mostrarAcciones=puedeCambiarEstatus||puedeCerrar||puedeEditar;
 
   document.getElementById('det-body').innerHTML=`
     ${elim?`<div class="del-banner" style="margin-bottom:14px;font-size:12px;padding:10px 14px;"><i class="ti ti-alert-triangle" aria-hidden="true"></i><div>Este servicio fue eliminado por <strong>${v.eliminadoPor}</strong> el ${fFecha(v.eliminadoEn)}.<br>Se conserva como evidencia y no puede borrarse.</div></div>`:''}
@@ -1361,7 +1413,7 @@ function verDetalle(id){
     <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Evidencia fotográfica</div>
     ${hF
       ?`<div class="rv-foto" onclick="verFoto(${id})"><img src="${v.foto}" alt="Evidencia" /><div style="padding:8px 12px;font-size:12px;color:var(--c3);font-weight:600;display:flex;align-items:center;gap:5px;"><i class="ti ti-zoom-in" aria-hidden="true"></i> Toca para ampliar</div></div>`
-      :(!elim?`<div class="foto-zone" onclick="document.getElementById('foto-det').click()"><i class="ti ti-camera" aria-hidden="true"></i><span>Sin foto — Toca para agregar</span></div><input type="file" id="foto-det" accept="image/*" capture="environment" style="display:none;" onchange="guardarFotoDet(this,${id})" />`:'<div style="font-size:12px;color:var(--sub);"><i class="ti ti-camera" aria-hidden="true"></i> Sin evidencia fotográfica</div>')}
+      :((!elim&&puedeGestionar)?`<div class="foto-zone" onclick="document.getElementById('foto-det').click()"><i class="ti ti-camera" aria-hidden="true"></i><span>Sin foto — Toca para agregar</span></div><input type="file" id="foto-det" accept="image/*" capture="environment" style="display:none;" onchange="guardarFotoDet(this,${id})" />`:'<div style="font-size:12px;color:var(--sub);"><i class="ti ti-camera" aria-hidden="true"></i> Sin evidencia fotográfica</div>')}
     ${!elim?`
     ${v.finalizadoPor?`<div class="finish-box"><h3>Servicio finalizado</h3><div class="finish-meta"><strong>Por:</strong> ${v.finalizadoPor}<br><strong>Resultado:</strong> ${v.finalizadoResultado||'Finalizado correctamente'}<br><strong>Fecha:</strong> ${v.finalizadoEn?new Date(v.finalizadoEn).toLocaleString('es-MX'):'—'}</div>${v.finalizadoReporte?`<div style="margin-top:10px;font-size:13px;color:var(--txt);"><strong>Reporte:</strong> ${v.finalizadoReporte}</div>`:''}
       ${v.fotoFinal?`<div style="margin-top:12px;">
@@ -1369,14 +1421,14 @@ function verDetalle(id){
         ${sesion&&sesion.msgId===v.msgId&&((v.fotoFinalReemplazos||0)<1)?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;"><input type="file" id="repl-foto-${id}" accept="image/*" capture="environment" style="display:none;" onchange="guardarReemplazoFoto(this,${id})" /><button class="btn-sm btn-ghost" onclick="document.getElementById('repl-foto-${id}').click()">Reemplazar foto (1 vez)</button><span style="font-size:12px;color:var(--sub);">Reemplazos usados: ${(v.fotoFinalReemplazos||0)}/1</span></div>`:''}
       </div>`:''}
     </div>`:''}
-    <div style="margin-top:16px;">
+    ${mostrarAcciones?`<div style="margin-top:16px;">
       <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Cambiar estatus</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
-        ${!v.finalizadoPor?`<button class="btn-sm btn-ghost" onclick="cambEst(${id},'Programado');cerrarModal('m-det')">Programado</button><button class="btn-sm btn-ghost" onclick="cambEst(${id},'En curso');cerrarModal('m-det')">En curso</button>`:''}
+        ${puedeCambiarEstatus?`<button class="btn-sm btn-ghost" onclick="cambEst(${id},'Programado');cerrarModal('m-det')">Programado</button><button class="btn-sm btn-ghost" onclick="cambEst(${id},'En curso');cerrarModal('m-det')">En curso</button>`:''}
         ${puedeCerrar?`<button class="btn-sm btn-ok" onclick="abrirFinalizacion(${id});cerrarModal('m-det')"><i class="ti ti-flag-checkered" aria-hidden="true"></i> Finalizar servicio</button>`:''}
         ${puedeEditar?`<button class="btn-sm btn-ghost" onclick="abrirEdicion(${id});cerrarModal('m-det')" style="margin-left:auto;"><i class="ti ti-edit" aria-hidden="true"></i> Editar</button>`:''}
       </div>
-    </div>
+    </div>`:''}
     ${esAdmin()?`<button class="btn-sm btn-del" style="margin-top:14px;width:100%;justify-content:center;" onclick="elimSrv(${id})"><i class="ti ti-trash" aria-hidden="true"></i> Eliminar servicio</button>`:''}
     `:''}
   `;
@@ -1392,14 +1444,17 @@ function verFoto(id){
 
 function guardarFotoDet(input,id){
   const f=input.files[0];if(!f)return;
+  const v=D.servicios.find(x=>x.id===id);
+  if(!puedeGestionarServicio(v)){toast('No tienes permiso para editar este servicio.');return;}
   const r=new FileReader();
-  r.onload=e=>{const v=D.servicios.find(x=>x.id===id);if(v){v.foto=e.target.result;guardarTodo();verDetalle(id);toast('✓ Foto guardada');}};
+  r.onload=e=>{if(v){v.foto=e.target.result;guardarTodo();verDetalle(id);toast('✓ Foto guardada');}};
   r.readAsDataURL(f);
 }
 
 function cambEst(id,est){
   const v=D.servicios.find(x=>x.id===id);
   if(v){
+    if(!puedeGestionarServicio(v)){toast('No tienes permiso para cambiar este servicio.');return;}
     if(v.finalizadoPor){toast('Este servicio ya fue finalizado.');return;}
     v.estatus=est;guardarTodo();renderInicio();renderServicios();toast('✓ Estatus: '+est);
   }
@@ -1581,9 +1636,10 @@ function guardarReemplazoFoto(input,id){
    MENSAJEROS
 ══════════════════════════════════════════ */
 function renderMensajeros(){
-  document.getElementById('msg-hdr-sub').textContent=D.mensajeros.length+' mensajeros';
-  document.getElementById('msg-lista').innerHTML=D.mensajeros.length
-    ?D.mensajeros.map(m=>{
+  const visibles = esAdmin() ? D.mensajeros : D.mensajeros.filter((m)=>Number(m.id)===Number(sesion?.msgId));
+  document.getElementById('msg-hdr-sub').textContent=visibles.length+' mensajeros';
+  document.getElementById('msg-lista').innerHTML=visibles.length
+    ?visibles.map(m=>{
       const total=D.servicios.filter(v=>v.msgId===m.id&&!v.eliminadoPor).length;
       const hoyC=D.servicios.filter(v=>v.msgId===m.id&&v.fecha===hoy()&&!v.eliminadoPor).length;
       const ing=D.servicios.filter(v=>v.msgId===m.id&&!v.eliminadoPor).reduce((a,v)=>a+parseFloat(v.monto||0),0);
@@ -1601,6 +1657,10 @@ function renderMensajeros(){
 }
 
 function verDetMsj(id){
+  if(!esAdmin() && Number(sesion?.msgId)!==Number(id)){
+    toast('No tienes permiso para ver otros mensajeros.');
+    return;
+  }
   const m=D.mensajeros.find(x=>x.id===id);
   const vs=D.servicios.filter(v=>v.msgId===id&&!v.eliminadoPor).sort((a,b)=>b.id-a.id);
   const total=vs.reduce((a,v)=>a+parseFloat(v.monto||0),0);
@@ -1929,6 +1989,7 @@ document.addEventListener('keydown',e=>{
 let editPersonas=[];
 
 function abrirEdicion(id){
+  if(!esAdmin()){toast('Solo admin puede editar servicios.');return;}
   const v=D.servicios.find(x=>x.id===id);
   if(!v)return;
   editPersonas=[...(v.personas||[])];
@@ -1971,6 +2032,7 @@ function renderEditPersonas(){
 }
 
 function guardarEdicion(){
+  if(!esAdmin()){toast('Solo admin puede editar servicios.');return;}
   const id=parseInt(document.getElementById('ed-id').value);
   const v=D.servicios.find(x=>x.id===id);
   if(!v)return;

@@ -37,6 +37,8 @@ let db = null;
 let pgClient = null;
 let firebaseMessaging = null;
 let usePostgres = Boolean(process.env.DATABASE_URL);
+const sseClients = new Set();
+let stateMutationLock = Promise.resolve();
 
 function initFirebaseMessaging() {
   if (firebaseMessaging) return;
@@ -845,6 +847,44 @@ function sanitizeState(state) {
   return safe;
 }
 
+function broadcastSse(event, payload) {
+  const serialized = `event: ${event}\ndata: ${JSON.stringify(payload)}\n\n`;
+  for (const client of sseClients) {
+    try {
+      client.res.write(serialized);
+    } catch {
+      sseClients.delete(client);
+    }
+  }
+}
+
+function broadcastStateUpdate(syncVersion, changedBy) {
+  broadcastSse('state_update', {
+    syncVersion: Number(syncVersion || 0),
+    changedBy: Number.isFinite(Number(changedBy)) ? Number(changedBy) : null,
+    ts: nowISO(),
+  });
+}
+
+async function withStateMutationLock(fn) {
+  const previous = stateMutationLock;
+  let release;
+  stateMutationLock = new Promise((resolve) => {
+    release = resolve;
+  });
+  await previous;
+  try {
+    return await fn();
+  } finally {
+    release();
+  }
+}
+
+setInterval(() => {
+  if (!sseClients.size) return;
+  broadcastSse('ping', { ts: nowISO() });
+}, 25000);
+
 
 function sendSecureHeaders(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -1024,28 +1064,17 @@ async function saveState(state) {
   await ensureStorage();
   await run('BEGIN TRANSACTION');
   try {
-    // Fase 4: persistencia sin pérdidas.
-    // Evitamos borrar toda la DB en cada sync: los clientes pueden mandar payloads parciales,
-    // y si borramos podríamos perder datos que el cliente no incluyó.
-    // En lugar de DELETE+INSERT masivo, realizamos UPSERT por entidad.
-
-    // Usuarios: se sincroniza por id.
-    await run('CREATE UNIQUE INDEX IF NOT EXISTS usuarios_idx_id ON usuarios(id)');
-    // Mensajeros: se sincroniza por id.
-    await run('CREATE UNIQUE INDEX IF NOT EXISTS mensajeros_idx_id ON mensajeros(id)');
-    // Servicios: se sincroniza por id.
-    await run('CREATE UNIQUE INDEX IF NOT EXISTS servicios_idx_id ON servicios(id)');
-    // Auditoría: se sincroniza por srvId (si existe) o por combinación (ts, por, folio, msgNombre).
-    await run('CREATE INDEX IF NOT EXISTS auditoria_idx_srvId ON auditoria(srvId)');
-
-    // Reportes: se sincroniza por id (índice del arreglo enviado).
-    await run('CREATE UNIQUE INDEX IF NOT EXISTS reportes_idx_id ON reportesRecibidos(id)');
-
-    // Meta: se sincroniza por key.
-    await run('CREATE UNIQUE INDEX IF NOT EXISTS meta_idx_key ON meta(key)');
+    // Persistimos el snapshot ya reconciliado (current + incoming) de forma atómica.
+    // Así evitamos fallas por llaves duplicadas y mantenemos consistencia entre tablas.
+    await run('DELETE FROM auditoria');
+    await run('DELETE FROM reportesRecibidos');
+    await run('DELETE FROM servicios');
+    await run('DELETE FROM mensajeros');
+    await run('DELETE FROM usuarios');
+    await run('DELETE FROM meta');
 
     // Persistencia de usuarios.
-    const insertUsuario = 'INSERT INTO usuarios (id, nombre, username, pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?) ON CONFLICT(id) DO UPDATE SET nombre = excluded.nombre, username = excluded.username, pass = excluded.pass, rol = excluded.rol, msgId = excluded.msgId';
+    const insertUsuario = 'INSERT INTO usuarios (id, nombre, username, pass, rol, msgId) VALUES (?, ?, ?, ?, ?, ?)';
 
     for (const u of state.usuarios || []) {
       await run(insertUsuario, [u.id, u.nombre, u.user, u.pass, u.rol, u.msgId]);
@@ -1151,6 +1180,33 @@ app.get('/health', (_req, res) => {
     status: 'advance',
     // Aumenta esto cuando quieras forzar compatibilidad por versión de app.
     backendVersion: 6,
+  });
+});
+
+app.get('/api/zavala/events', requireAuth, async (req, res) => {
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.setHeader('X-Accel-Buffering', 'no');
+  if (typeof res.flushHeaders === 'function') {
+    res.flushHeaders();
+  }
+
+  // Ask EventSource clients to retry quickly on disconnect.
+  res.write('retry: 3000\n\n');
+
+  try {
+    const current = await loadState();
+    res.write(`event: hello\ndata: ${JSON.stringify({ syncVersion: Number(current.syncVersion || 0), ts: nowISO() })}\n\n`);
+  } catch {
+    res.write(`event: hello\ndata: ${JSON.stringify({ syncVersion: 0, ts: nowISO() })}\n\n`);
+  }
+
+  const client = { res, userId: Number(req.user?.id) || null };
+  sseClients.add(client);
+
+  req.on('close', () => {
+    sseClients.delete(client);
   });
 });
 
@@ -1344,6 +1400,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
   }
 
   try {
+    await withStateMutationLock(async () => {
     const current = await loadState();
 
     // Fase 6: compatibilidad app↔backend sin reinstalación.
@@ -1353,7 +1410,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     const backendVersion = 6;
     if (Number.isFinite(backendCompatVersion) && backendCompatVersion > 0 && backendCompatVersion !== backendVersion) {
       // Regresamos estado actual para que el cliente se reconcilie.
-      return res.status(200).json({
+      return res.status(409).json({
         ok: false,
         message: 'Compatibilidad de versión. Se regresó el estado para reintentar con el backend actualizado.',
         reason: 'backend_version_mismatch',
@@ -1378,7 +1435,7 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     // Si el cliente trae una syncVersion atrasada (apps ya instaladas / sin reinstalación),
     // evitamos bloquear el uso: regresamos el estado actual para que el cliente lo aplique.
     if (incomingVersion !== currentVersion) {
-      return res.status(200).json({
+      return res.status(409).json({
         ok: false,
         message: 'Estado desactualizado. Se regresó el estado más reciente para reintentar sincronización.',
         reason: 'sync_conflict',
@@ -1421,6 +1478,10 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     const incomingServicios = Array.isArray(incoming.servicios)
       ? incoming.servicios.map(normalizeIncomingService)
       : incoming.servicios;
+
+    const isAdminUser = req.user?.rol === 'admin';
+    const stateUser = (current.usuarios || []).find((u) => Number(u.id) === Number(req.user?.id));
+    const userMsgId = Number(req.user?.msgId ?? stateUser?.msgId);
 
     const mergeServiciosById = (base, updates) => {
       // Merge conservador por id: preserva campos que existían y no vienen en el payload legacy.
@@ -1517,15 +1578,76 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
       return out;
     };
 
+    const dedupeById = (arr) => {
+      if (!Array.isArray(arr)) return arr;
+      const map = new Map();
+      for (const item of arr) {
+        const id = Number(item?.id);
+        if (!Number.isFinite(id)) continue;
+        map.set(id, { ...item, id });
+      }
+      return Array.from(map.values());
+    };
+
+    const mergedServicios = incomingServicios !== undefined
+      ? mergeServiciosById(current.servicios, incomingServicios)
+      : current.servicios;
+    let mergedUsuarios = usuarios || current.usuarios;
+    let mergedMensajeros = Array.isArray(incoming.mensajeros) ? incoming.mensajeros : current.mensajeros;
+    let mergedAuditoria = Array.isArray(incoming.auditoria) ? mergeAuditoriaConservador(current.auditoria, incoming.auditoria) : current.auditoria;
+    let mergedReportesRecibidos = Array.isArray(incoming.reportesRecibidos)
+      ? mergeReportesRecibidosConservador(current.reportesRecibidos, incoming.reportesRecibidos)
+      : current.reportesRecibidos;
+    let effectiveServicios = mergedServicios;
+
+    if (!isAdminUser) {
+      if (!Number.isFinite(userMsgId)) {
+        return res.status(403).json({ ok: false, message: 'Usuario sin mensajero asociado', reason: 'missing_msgid' });
+      }
+
+      const ownServiceIds = new Set(
+        (current.servicios || [])
+          .filter((s) => Number(s?.msgId) === userMsgId)
+          .map((s) => Number(s.id)),
+      );
+
+      const allowedPatch = (svc) => ({
+        id: Number(svc.id),
+        estatus: svc.estatus,
+        monto: svc.monto,
+        foto: svc.foto,
+        finalizadoPor: svc.finalizadoPor,
+        finalizadoEn: svc.finalizadoEn,
+        finalizadoReporte: svc.finalizadoReporte,
+        finalizadoResultado: svc.finalizadoResultado,
+        fotoFinal: svc.fotoFinal,
+        fotoFinalReemplazos: svc.fotoFinalReemplazos,
+        editadoPor: svc.editadoPor,
+        editadoEn: svc.editadoEn,
+        recordatoriosEnviadas: svc.recordatoriosEnviadas,
+      });
+
+      const messengerIncomingServicios = Array.isArray(incomingServicios)
+        ? incomingServicios
+          .filter((s) => Number.isFinite(Number(s?.id)) && ownServiceIds.has(Number(s.id)))
+          .map(allowedPatch)
+        : [];
+
+      effectiveServicios = mergeServiciosById(current.servicios, messengerIncomingServicios);
+      mergedUsuarios = current.usuarios;
+      mergedMensajeros = current.mensajeros;
+      mergedAuditoria = current.auditoria;
+      mergedReportesRecibidos = current.reportesRecibidos;
+    }
+
     const next = {
       ...current,
       ...incoming,
-      servicios: incomingServicios !== undefined ? mergeServiciosById(current.servicios, incomingServicios) : current.servicios,
-      usuarios: usuarios || current.usuarios,
-      auditoria: Array.isArray(incoming.auditoria) ? mergeAuditoriaConservador(current.auditoria, incoming.auditoria) : current.auditoria,
-      reportesRecibidos: Array.isArray(incoming.reportesRecibidos)
-        ? mergeReportesRecibidosConservador(current.reportesRecibidos, incoming.reportesRecibidos)
-        : current.reportesRecibidos,
+      servicios: dedupeById(effectiveServicios),
+      usuarios: dedupeById(mergedUsuarios),
+      mensajeros: dedupeById(mergedMensajeros),
+      auditoria: mergedAuditoria,
+      reportesRecibidos: mergedReportesRecibidos,
       syncVersion: currentVersion + 1,
     };
 
@@ -1533,10 +1655,12 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
     await saveState(next);
 
     notifyStateTransitions(current, next).catch((error) => console.error('Error enviando push de cambios:', error.message));
+    broadcastStateUpdate(next.syncVersion, req.user?.id);
     res.json({ ok: true, saved: true });
+    });
   } catch (error) {
     console.error(error);
-    res.status(500).json({ ok: false, message: 'Error al guardar estado' });
+    res.status(500).json({ ok: false, message: 'Error al guardar estado', detail: error?.message || String(error) });
   }
 });
 
