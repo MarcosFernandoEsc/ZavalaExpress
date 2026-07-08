@@ -777,12 +777,44 @@ function sanitizeUsers(users) {
   }));
 }
 
+function safeParseJsonArray(value, fallback = []) {
+  if (Array.isArray(value)) return value;
+  if (value === null || value === undefined) return fallback;
+  if (typeof value !== 'string') return fallback;
+  const trimmed = value.trim();
+  if (!trimmed) return fallback;
+  try {
+    const parsed = JSON.parse(trimmed);
+    return Array.isArray(parsed) ? parsed : fallback;
+  } catch {
+    return fallback;
+  }
+}
+
 function sanitizeState(state) {
-  return {
+  const safe = {
     ...state,
     usuarios: sanitizeUsers(state.usuarios),
+    servicios: Array.isArray(state.servicios)
+      ? state.servicios.map((s) => ({
+          ...s,
+          monto: Number.isFinite(Number(s?.monto)) ? Number(s.monto) : 0,
+          fotoFinalReemplazos: Number.isFinite(Number(s?.fotoFinalReemplazos)) ? Number(s.fotoFinalReemplazos) : 0,
+          personas: safeParseJsonArray(s?.personas, []),
+        }))
+      : [],
+    auditoria: Array.isArray(state.auditoria)
+      ? state.auditoria.map((a) => ({
+          ...a,
+          monto: Number.isFinite(Number(a?.monto)) ? Number(a.monto) : 0,
+          personas: safeParseJsonArray(a?.personas, []),
+        }))
+      : [],
   };
+
+  return safe;
 }
+
 
 function sendSecureHeaders(req, res, next) {
   res.setHeader('X-Content-Type-Options', 'nosniff');
@@ -893,8 +925,9 @@ async function loadState() {
       eliminadoEn: pick(row, 'eliminadoEn', 'eliminadoen') || '',
       editadoPor: pick(row, 'editadoPor', 'editadopor') || '',
       editadoEn: pick(row, 'editadoEn', 'editadoen') || '',
-      personas: row.personas ? JSON.parse(row.personas) : [],
+      personas: safeParseJsonArray(row.personas, []),
     })),
+
     auditoria: auditoriaRows.map((row) => ({
       ts: row.ts,
       por: row.por,
@@ -903,8 +936,9 @@ async function loadState() {
       msgNombre: pick(row, 'msgNombre', 'msgnombre') || '',
       fecha: row.fecha,
       hora: row.hora,
-      personas: row.personas ? JSON.parse(row.personas) : [],
+      personas: safeParseJsonArray(row.personas, []),
       monto: row.monto === null ? 0 : Number(row.monto),
+
       obs: row.obs,
       srvId: toNullableNumber(pick(row, 'srvId', 'srvid')),
     })),
@@ -1283,18 +1317,120 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
       return out;
     };
 
-    const incomingServicios = Array.isArray(incoming.servicios) ? incoming.servicios.map(normalizeIncomingService) : incoming.servicios;
+    const incomingServicios = Array.isArray(incoming.servicios)
+      ? incoming.servicios.map(normalizeIncomingService)
+      : incoming.servicios;
+
+    const mergeServiciosById = (base, updates) => {
+      // Merge conservador por id: preserva campos que existían y no vienen en el payload legacy.
+      if (!Array.isArray(base) || !Array.isArray(updates)) return updates !== undefined ? updates : base;
+      const byId = new Map(base.map((s) => [Number(s?.id), s]));
+      const out = [];
+
+      for (const u of updates) {
+        if (!u || !Number.isFinite(Number(u.id))) continue;
+        const id = Number(u.id);
+        const existing = byId.get(id);
+        const merged = {
+          ...(existing || {}),
+          ...u,
+          id,
+        };
+        out.push(normalizeIncomingService(merged));
+        byId.delete(id);
+      }
+
+      // Mantener servicios que no vinieron en el payload
+      for (const remaining of byId.values()) {
+        out.push(normalizeIncomingService(remaining));
+      }
+
+      return out;
+    };
+
+    const normalizeIncomingAuditoria = (a) => {
+      if (!a || typeof a !== 'object') return a;
+      const out = { ...a };
+      if (typeof out.personas === 'string') {
+        try {
+          out.personas = JSON.parse(out.personas);
+        } catch {
+          out.personas = [];
+        }
+      }
+      if (!Array.isArray(out.personas)) out.personas = [];
+      if (out.monto === '' || out.monto === undefined || out.monto === null) out.monto = 0;
+      out.monto = Number(out.monto);
+      if (!Number.isFinite(out.monto)) out.monto = 0;
+      return out;
+    };
+
+    const mergeAuditoriaConservador = (base, updates) => {
+      if (!Array.isArray(base) || !Array.isArray(updates)) return updates !== undefined ? updates : base;
+      const keyOf = (a) => {
+        const srvId = a?.srvId ?? a?.srvid;
+        if (srvId !== undefined && srvId !== null && srvId !== '') return `srv:${Number(srvId)}`;
+        return `folio:${String(a?.folio || '')}|ts:${String(a?.ts || '')}`;
+      };
+      const byKey = new Map(base.map((a) => [keyOf(a), a]));
+      const out = [];
+
+      for (const a of updates) {
+        if (!a || typeof a !== 'object') continue;
+        const key = keyOf(a);
+        const existing = byKey.get(key);
+        const merged = existing ? { ...existing, ...a } : { ...a };
+        out.push(normalizeIncomingAuditoria(merged));
+        byKey.delete(key);
+      }
+
+      for (const remaining of byKey.values()) {
+        out.push(normalizeIncomingAuditoria(remaining));
+      }
+
+      return out;
+    };
+
+    const normalizeIncomingReportes = (r) => {
+      if (r === null || r === undefined) return null;
+      if (typeof r === 'object') return r;
+      if (typeof r === 'string') {
+        try {
+          return JSON.parse(r);
+        } catch {
+          return r;
+        }
+      }
+      return r;
+    };
+
+    const mergeReportesRecibidosConservador = (base, updates) => {
+      // Conservador por índice (si el cliente manda un subset incompleto, no se eliminan los demás).
+      if (!Array.isArray(base) || !Array.isArray(updates)) return updates !== undefined ? updates : base;
+      const out = [...base];
+      updates.forEach((r, idx) => {
+        const nr = normalizeIncomingReportes(r);
+        if (nr === null || nr === undefined || nr === '') return;
+        out[idx] = nr;
+      });
+      return out;
+    };
 
     const next = {
       ...current,
       ...incoming,
-      servicios: incomingServicios !== undefined ? incomingServicios : current.servicios,
+      servicios: incomingServicios !== undefined ? mergeServiciosById(current.servicios, incomingServicios) : current.servicios,
       usuarios: usuarios || current.usuarios,
+      auditoria: Array.isArray(incoming.auditoria) ? mergeAuditoriaConservador(current.auditoria, incoming.auditoria) : current.auditoria,
+      reportesRecibidos: Array.isArray(incoming.reportesRecibidos)
+        ? mergeReportesRecibidosConservador(current.reportesRecibidos, incoming.reportesRecibidos)
+        : current.reportesRecibidos,
       syncVersion: currentVersion + 1,
     };
 
 
     await saveState(next);
+
     notifyStateTransitions(current, next).catch((error) => console.error('Error enviando push de cambios:', error.message));
     res.json({ ok: true, saved: true });
   } catch (error) {
