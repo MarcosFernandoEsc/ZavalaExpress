@@ -313,6 +313,10 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
   </div>
   <div class="tb-right">
     <span class="tb-rol" id="tb-rol-badge">Admin</span>
+    <div id="sync-indicator" class="tb-user" style="background:rgba(27,107,58,.2);border-radius:8px;padding:5px 10px;font-size:11px;cursor:pointer;flex:none;max-width:auto;" title="Haz clic para forzar sincronización">
+      <i class="ti ti-refresh" id="sync-icon" style="font-size:14px;color:var(--ok);" aria-hidden="true"></i>
+      <span id="sync-status" style="color:var(--ok);">Sincronizado</span>
+    </div>
     <div class="tb-user">
       <div class="tb-av" id="tb-av">A</div>
       <span class="tb-uname" id="tb-uname">Admin</span>
@@ -691,6 +695,12 @@ let authToken=localStorage.getItem(AUTH_TOKEN_KEY) || null;
 let serverMode=Boolean(APP_CONFIG.apiBaseUrl);
 let db=null;
 
+// Sincronización: rastreo de estado
+let lastSyncTime = null;
+let isSyncing = false;
+let hasPendingChanges = false;
+let syncWarning = false;
+
 function saveSessionUser(user){
   if(!user){
     localStorage.removeItem(SESSION_USER_KEY);
@@ -831,11 +841,11 @@ async function iniciarPushNativo(){
       const msg = notification?.body || 'Nuevo aviso';
       mostrarNotificacionSistema(title, msg);
       toast(msg);
-      actualizarEstadoRemoto().catch((e) => console.warn('Error actualizando estado tras push', e));
+      actualizarEstadoRemoto(true).catch((e) => console.warn('Error actualizando estado tras push', e));
     });
 
     PushNotifications.addListener('pushNotificationActionPerformed', () => {
-      actualizarEstadoRemoto().catch((e) => console.warn('Error actualizando estado tras acción de push', e));
+      actualizarEstadoRemoto(true).catch((e) => console.warn('Error actualizando estado tras acción de push', e));
       renderInicio();
       renderServicios();
     });
@@ -881,9 +891,10 @@ function abrirDB(){
 function dbGet(k){return new Promise(r=>{if(!db){r(null);return;}const tx=db.transaction(STORE,'readonly');const rq=tx.objectStore(STORE).get(k);rq.onsuccess=()=>r(rq.result||null);rq.onerror=()=>r(null);});}
 function dbSet(k,v){return new Promise(r=>{if(!db){r();return;}const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(v,k);tx.oncomplete=()=>r();tx.onerror=()=>r();});}
 
-async function actualizarEstadoRemoto(){
+async function actualizarEstadoRemoto(force){
+  // force: cuando true, ignoramos `hasUnsyncedLocalChanges` y obtenemos estado remoto
   if(!serverMode || !authToken) return;
-  if(hasUnsyncedLocalChanges) return;
+  if(hasUnsyncedLocalChanges && !force) return;
   try{
     const res = await fetchApi('/api/zavala/state');
     if(res && res.ok){
@@ -941,7 +952,7 @@ function iniciarRealtimeSync(){
     try{
       const data = JSON.parse(evt.data || '{}');
       if(Number.isFinite(Number(data.syncVersion)) && Number(data.syncVersion) > Number(D.syncVersion||0)){
-        actualizarEstadoRemoto().catch(()=>{});
+        actualizarEstadoRemoto(true).catch(()=>{});
       }
     }catch{}
   });
@@ -951,10 +962,10 @@ function iniciarRealtimeSync(){
       const data = JSON.parse(evt.data || '{}');
       const nextVersion = Number(data.syncVersion||0);
       if(Number.isFinite(nextVersion) && nextVersion > Number(D.syncVersion||0)){
-        actualizarEstadoRemoto().catch(()=>{});
+        actualizarEstadoRemoto(true).catch(()=>{});
       }
     }catch{
-      actualizarEstadoRemoto().catch(()=>{});
+      actualizarEstadoRemoto(true).catch(()=>{});
     }
   });
 
@@ -964,7 +975,7 @@ function iniciarRealtimeSync(){
       stateEventsReconnectTimer = setTimeout(()=>{
         stateEventsReconnectTimer = null;
         iniciarRealtimeSync();
-      }, 3000);
+      }, 1000);
     }
   };
 }
@@ -979,6 +990,8 @@ async function syncServidor(){
   syncPending = true;
   if(syncInFlight)return;
   syncInFlight = true;
+  isSyncing = true;
+  updateSyncIndicator();
   try{
     while(syncPending){
       if(!authToken){
@@ -1000,7 +1013,10 @@ async function syncServidor(){
         lastSyncedPayload = payload;
         setPendingPatches([]);
         hasUnsyncedLocalChanges = false;
+        hasPendingChanges = false;
         syncBackoffMs = 0;
+        // Refrescar estado remoto inmediatamente después de sincronizar exitosamente
+        actualizarEstadoRemoto(true).catch(()=>{});
       } else {
         const reason = body?.reason || null;
         if((res && res.status===409) || reason==='sync_conflict' || reason==='backend_version_mismatch'){
@@ -1067,10 +1083,13 @@ async function syncServidor(){
         if(res && res.status>=500){
           syncPending = false;
           syncBackoffMs = 3000;
+          hasPendingChanges = true;
+          syncWarning = true;
           setTimeout(()=>{ if(authToken && hasUnsyncedLocalChanges) syncServidor(); }, syncBackoffMs);
           break;
         }
         syncPending = Boolean(authToken);
+        hasPendingChanges = true;
       }
     }
   }catch(e){
@@ -1079,15 +1098,90 @@ async function syncServidor(){
   }
   finally{
     syncInFlight = false;
+    updateSyncIndicator();
   }
 }
+
+// Actualizar indicador visual de sincronización
+function updateSyncIndicator(){
+  const indicator = document.getElementById('sync-indicator');
+  const statusEl = document.getElementById('sync-status');
+  const iconEl = document.getElementById('sync-icon');
+  
+  if(!indicator) return;
+  
+  if(isSyncing){
+    indicator.style.background = 'rgba(122,78,13,.2)';
+    statusEl.textContent = 'Sincronizando...';
+    statusEl.style.color = 'var(--warn)';
+    iconEl.style.color = 'var(--warn)';
+    iconEl.style.animation = 'spin 1s linear infinite';
+  } else if(hasPendingChanges || syncWarning){
+    indicator.style.background = 'rgba(139,26,26,.2)';
+    statusEl.textContent = 'Cambios pendientes';
+    statusEl.style.color = 'var(--red)';
+    iconEl.style.color = 'var(--red)';
+    iconEl.style.animation = 'none';
+  } else {
+    indicator.style.background = 'rgba(27,107,58,.2)';
+    statusEl.textContent = 'Sincronizado';
+    statusEl.style.color = 'var(--ok)';
+    iconEl.style.color = 'var(--ok)';
+    iconEl.style.animation = 'none';
+  }
+  lastSyncTime = new Date();
+}
+
+// Forzar sincronización inmediata desde el cliente
+async function forceSync(){
+  if(!serverMode || !authToken) return;
+  try{
+    isSyncing = true;
+    updateSyncIndicator();
+    
+    // Sincronizar cambios pendientes
+    await syncServidor();
+    
+    // Forzar actualización en servidor
+    const res = await fetchApi('/api/zavala/force-refresh', {method: 'POST'});
+    if(res && res.ok){
+      const body = await res.json();
+      console.log('Sincronización forzada:', body);
+      await actualizarEstadoRemoto(true);
+    }
+  }catch(e){
+    console.warn('Error en força sync:', e);
+  }finally{
+    isSyncing = false;
+    updateSyncIndicator();
+  }
+}
+
+// Agregar listener al indicador de sincronización
+document.addEventListener('DOMContentLoaded', function(){
+  const syncIndicator = document.getElementById('sync-indicator');
+  if(syncIndicator){
+    syncIndicator.addEventListener('click', forceSync);
+    syncIndicator.style.cursor = 'pointer';
+  }
+  
+  // Agregar animación de spin al CSS si no existe
+  if(!document.getElementById('sync-animation-style')){
+    const style = document.createElement('style');
+    style.id = 'sync-animation-style';
+    style.textContent = '@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}';
+    document.head.appendChild(style);
+  }
+});
 
 function guardarTodo(){
   if(!Number.isFinite(Number(D.syncVersion)))D.syncVersion=1;
   const j=JSON.stringify(D);
   hasUnsyncedLocalChanges = true;
+  hasPendingChanges = true;
   try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
   dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
+  updateSyncIndicator();
   syncServidor();
 }
 
@@ -1551,7 +1645,7 @@ function iniciarVista(){
     iniciarRealtimeSync();
     actualizarEstadoRemoto().catch(()=>{});
     if(remoteRefreshIntervalId)clearInterval(remoteRefreshIntervalId);
-    remoteRefreshIntervalId = setInterval(() => actualizarEstadoRemoto().catch(()=>{}), 30000);
+    remoteRefreshIntervalId = setInterval(() => actualizarEstadoRemoto().catch(()=>{}), 5000);
   }
   iniciarPushNativo();
 }

@@ -1796,6 +1796,59 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
   }
 });
 
+// Endpoint de diagnóstico para admin: ver estado actual de servicios
+app.get('/api/zavala/diagnostico/servicios', requireAuth, async (req, res) => {
+  if (req.user?.rol !== 'admin') {
+    return res.status(403).json({ ok: false, message: 'Solo admin' });
+  }
+
+  try {
+    const state = await loadState();
+    const servicios = Array.isArray(state.servicios) ? state.servicios.map((s) => ({
+      id: s.id,
+      folio: s.folio,
+      estatus: s.estatus,
+      finalizadoPor: s.finalizadoPor || '(vacío)',
+      finalizadoEn: s.finalizadoEn || '(vacío)',
+      msgId: s.msgId,
+      creadoEn: s.creadoEn,
+      editadoEn: s.editadoEn,
+    })) : [];
+    
+    res.json({
+      ok: true,
+      syncVersion: state.syncVersion,
+      totalServicios: servicios.length,
+      servicios: servicios.sort((a, b) => b.id - a.id).slice(0, 50),
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error en diagnóstico', detail: error.message });
+  }
+});
+
+// Endpoint para forzar recarga de estado (rompe la caché del cliente)
+app.post('/api/zavala/force-refresh', requireAuth, async (req, res) => {
+  try {
+    const state = await loadState();
+    // Incrementar syncVersion para forzar que todos los clientes actualicen
+    state.syncVersion = Number(state.syncVersion || 1) + 1;
+    await saveState(state);
+    
+    // Notificar a todos los clientes SSE conectados
+    broadcastStateUpdate(state.syncVersion, req.user?.id);
+    
+    res.json({ 
+      ok: true, 
+      message: 'Actualización forzada enviada a todos los clientes',
+      newSyncVersion: state.syncVersion 
+    });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ ok: false, message: 'Error forzando refresh', detail: error.message });
+  }
+});
+
 app.get('/', (_req, res) => {
   res.sendFile(join(__dirname, 'public', 'index.html'));
 });
