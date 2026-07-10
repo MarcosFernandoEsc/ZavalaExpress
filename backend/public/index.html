@@ -1875,9 +1875,31 @@ function verDetalle(id){
 
 function verFoto(id){
   const v=D.servicios.find(x=>x.id===id);
-  document.getElementById('foto-full').src=v.foto;
-  document.getElementById('foto-cap').textContent=v.folio+' · '+msgNom(v.msgId)+' · '+fFecha(v.fecha);
+  const imgEl = document.getElementById('foto-full');
+  imgEl.src = v.foto;
+  imgEl.style.cursor = 'zoom-in';
+  // Al tocar la imagen, abrir en pantalla completa (si está disponible) o en nueva pestaña
+  imgEl.onclick = () => abrirFotoGrande();
+  document.getElementById('foto-cap').textContent = v.folio+' · '+msgNom(v.msgId)+' · '+fFecha(v.fecha);
   abrirModal('m-foto');
+}
+
+function abrirFotoGrande(){
+  const img = document.getElementById('foto-full');
+  if(!img || !img.src) return;
+  const el = img;
+  // Intentar pantalla completa
+  const request = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen || el.mozRequestFullScreen;
+  if(request){
+    try{
+      request.call(el);
+      return;
+    }catch(e){
+      // fallthrough
+    }
+  }
+  // Fallback: abrir en nueva pestaña/ventana
+  try{ window.open(el.src, '_blank'); }catch(e){}
 }
 
 function guardarFotoDet(input,id){
