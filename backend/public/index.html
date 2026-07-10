@@ -642,10 +642,11 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
       <div class="fg"><label>Resultado</label><select id="fin-resultado"><option value="Finalizado correctamente">Finalizado correctamente</option><option value="Finalizado con incidencias">Finalizado con incidencias</option><option value="Pendiente de seguimiento">Pendiente de seguimiento</option></select></div>
       <div class="m-sec">Foto del comprobante</div>
       <div id="fin-foto-wrap">
-        <div class="foto-zone" onclick="document.getElementById('fin-foto-input').click()">
+        <div class="foto-zone" onclick="triggerImagePicker('fin-foto-input')" style="cursor:pointer;">
           <i class="ti ti-camera" aria-hidden="true"></i>
           <span>Tomar foto o seleccionar imagen</span>
         </div>
+        <button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('fin-foto-input')" style="margin-top:8px;width:100%;justify-content:center;">Elegir foto o tomarla</button>
         <input type="file" id="fin-foto-input" accept="image/*" style="display:none;" onchange="cargarFotoFinal(this)" />
       </div>
       <button class="btn-prim btn-acc" onclick="guardarFinalizacion()" style="margin-top:16px;"><i class="ti ti-flag-checkered" aria-hidden="true"></i> Finalizar servicio</button>
@@ -1843,12 +1844,12 @@ function verDetalle(id){
     <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Evidencia fotográfica</div>
     ${hF
       ?`<div class="rv-foto" onclick="verFoto(${id})"><img src="${v.foto}" alt="Evidencia" /><div style="padding:8px 12px;font-size:12px;color:var(--c3);font-weight:600;display:flex;align-items:center;gap:5px;"><i class="ti ti-zoom-in" aria-hidden="true"></i> Toca para ampliar</div></div>`
-      :((!elim&&puedeGestionar)?`<div class="foto-zone" onclick="document.getElementById('foto-det').click()"><i class="ti ti-camera" aria-hidden="true"></i><span>Sin foto — Toca para agregar</span></div><input type="file" id="foto-det" accept="image/*" style="display:none;" onchange="guardarFotoDet(this,${id})" />`:'<div style="font-size:12px;color:var(--sub);"><i class="ti ti-camera" aria-hidden="true"></i> Sin evidencia fotográfica</div>')}
+      :((!elim&&puedeGestionar)?`<div class="foto-zone" onclick="triggerImagePicker('foto-det')" style="cursor:pointer;"><i class="ti ti-camera" aria-hidden="true"></i><span>Sin foto — Toca para agregar</span></div><button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('foto-det')" style="margin-top:8px;width:100%;justify-content:center;">Elegir foto o tomarla</button><input type="file" id="foto-det" accept="image/*" style="display:none;" onchange="guardarFotoDet(this,${id})" />`:'<div style="font-size:12px;color:var(--sub);"><i class="ti ti-camera" aria-hidden="true"></i> Sin evidencia fotográfica</div>')}
     ${!elim?`
     ${v.finalizadoPor?`<div class="finish-box"><h3>Servicio finalizado</h3><div class="finish-meta"><strong>Por:</strong> ${v.finalizadoPor}<br><strong>Resultado:</strong> ${v.finalizadoResultado||'Finalizado correctamente'}<br><strong>Fecha:</strong> ${v.finalizadoEn?new Date(v.finalizadoEn).toLocaleString('es-MX'):'—'}</div>${v.finalizadoReporte?`<div style="margin-top:10px;font-size:13px;color:var(--txt);"><strong>Reporte:</strong> ${v.finalizadoReporte}</div>`:''}
       ${v.fotoFinal?`<div style="margin-top:12px;">
         <div class="rv-foto" onclick="verFoto(${id})"><img src="${v.fotoFinal}" alt="Comprobante final" /></div>
-        ${sesion&&sesion.msgId===v.msgId&&((v.fotoFinalReemplazos||0)<1)?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;"><input type="file" id="repl-foto-${id}" accept="image/*" style="display:none;" onchange="guardarReemplazoFoto(this,${id})" /><button class="btn-sm btn-ghost" onclick="document.getElementById('repl-foto-${id}').click()">Reemplazar foto (1 vez)</button><span style="font-size:12px;color:var(--sub);">Reemplazos usados: ${(v.fotoFinalReemplazos||0)}/1</span></div>`:''}
+        ${sesion&&sesion.msgId===v.msgId&&((v.fotoFinalReemplazos||0)<1)?`<div style="margin-top:8px;display:flex;flex-direction:column;gap:8px;"><input type="file" id="repl-foto-${id}" accept="image/*" style="display:none;" onchange="guardarReemplazoFoto(this,${id})" /><button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('repl-foto-${id}')">Reemplazar foto (1 vez)</button><span style="font-size:12px;color:var(--sub);">Reemplazos usados: ${(v.fotoFinalReemplazos||0)}/1</span></div>`:''}
       </div>`:''}
     </div>`:''}
     ${mostrarAcciones?`<div style="margin-top:16px;">
@@ -1978,9 +1979,10 @@ function cargarFoto(input){
 function resetFoto(){
   tmpFoto=null;
   document.getElementById('foto-wrap').innerHTML=`
-    <div class="foto-zone" onclick="document.getElementById('foto-input-r').click()">
+    <div class="foto-zone" onclick="triggerImagePicker('foto-input-r')" style="cursor:pointer;">
       <i class="ti ti-camera" aria-hidden="true"></i><span>Tomar foto o seleccionar imagen</span>
     </div>
+    <button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('foto-input-r')" style="margin-top:8px;width:100%;justify-content:center;">Elegir foto o tomarla</button>
     <input type="file" id="foto-input-r" accept="image/*" style="display:none;" onchange="cargarFoto(this)" />`;
 }
 
@@ -2012,10 +2014,11 @@ function abrirFinalizacion(id){
   document.getElementById('fin-reporte').value='';
   document.getElementById('fin-resultado').value='Finalizado correctamente';
   document.getElementById('fin-foto-wrap').innerHTML=`
-    <div class="foto-zone" onclick="document.getElementById('fin-foto-input').click()">
+    <div class="foto-zone" onclick="triggerImagePicker('fin-foto-input')" style="cursor:pointer;">
       <i class="ti ti-camera" aria-hidden="true"></i>
       <span>Tomar foto o seleccionar imagen</span>
     </div>
+    <button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('fin-foto-input')" style="margin-top:8px;width:100%;justify-content:center;">Elegir foto o tomarla</button>
     <input type="file" id="fin-foto-input" accept="image/*" style="display:none;" onchange="cargarFotoFinal(this)" />`;
   abrirModal('m-final');
 }
