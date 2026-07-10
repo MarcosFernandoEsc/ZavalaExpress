@@ -646,7 +646,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
           <i class="ti ti-camera" aria-hidden="true"></i>
           <span>Tomar foto o seleccionar imagen</span>
         </div>
-        <input type="file" id="fin-foto-input" accept="image/*" capture="environment" style="display:none;" onchange="cargarFotoFinal(this)" />
+        <input type="file" id="fin-foto-input" accept="image/*" style="display:none;" onchange="cargarFotoFinal(this)" />
       </div>
       <button class="btn-prim btn-acc" onclick="guardarFinalizacion()" style="margin-top:16px;"><i class="ti ti-flag-checkered" aria-hidden="true"></i> Finalizar servicio</button>
     </div>
@@ -1843,12 +1843,12 @@ function verDetalle(id){
     <div style="font-size:10px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;">Evidencia fotográfica</div>
     ${hF
       ?`<div class="rv-foto" onclick="verFoto(${id})"><img src="${v.foto}" alt="Evidencia" /><div style="padding:8px 12px;font-size:12px;color:var(--c3);font-weight:600;display:flex;align-items:center;gap:5px;"><i class="ti ti-zoom-in" aria-hidden="true"></i> Toca para ampliar</div></div>`
-      :((!elim&&puedeGestionar)?`<div class="foto-zone" onclick="document.getElementById('foto-det').click()"><i class="ti ti-camera" aria-hidden="true"></i><span>Sin foto — Toca para agregar</span></div><input type="file" id="foto-det" accept="image/*" capture="environment" style="display:none;" onchange="guardarFotoDet(this,${id})" />`:'<div style="font-size:12px;color:var(--sub);"><i class="ti ti-camera" aria-hidden="true"></i> Sin evidencia fotográfica</div>')}
+      :((!elim&&puedeGestionar)?`<div class="foto-zone" onclick="document.getElementById('foto-det').click()"><i class="ti ti-camera" aria-hidden="true"></i><span>Sin foto — Toca para agregar</span></div><input type="file" id="foto-det" accept="image/*" style="display:none;" onchange="guardarFotoDet(this,${id})" />`:'<div style="font-size:12px;color:var(--sub);"><i class="ti ti-camera" aria-hidden="true"></i> Sin evidencia fotográfica</div>')}
     ${!elim?`
     ${v.finalizadoPor?`<div class="finish-box"><h3>Servicio finalizado</h3><div class="finish-meta"><strong>Por:</strong> ${v.finalizadoPor}<br><strong>Resultado:</strong> ${v.finalizadoResultado||'Finalizado correctamente'}<br><strong>Fecha:</strong> ${v.finalizadoEn?new Date(v.finalizadoEn).toLocaleString('es-MX'):'—'}</div>${v.finalizadoReporte?`<div style="margin-top:10px;font-size:13px;color:var(--txt);"><strong>Reporte:</strong> ${v.finalizadoReporte}</div>`:''}
       ${v.fotoFinal?`<div style="margin-top:12px;">
         <div class="rv-foto" onclick="verFoto(${id})"><img src="${v.fotoFinal}" alt="Comprobante final" /></div>
-        ${sesion&&sesion.msgId===v.msgId&&((v.fotoFinalReemplazos||0)<1)?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;"><input type="file" id="repl-foto-${id}" accept="image/*" capture="environment" style="display:none;" onchange="guardarReemplazoFoto(this,${id})" /><button class="btn-sm btn-ghost" onclick="document.getElementById('repl-foto-${id}').click()">Reemplazar foto (1 vez)</button><span style="font-size:12px;color:var(--sub);">Reemplazos usados: ${(v.fotoFinalReemplazos||0)}/1</span></div>`:''}
+        ${sesion&&sesion.msgId===v.msgId&&((v.fotoFinalReemplazos||0)<1)?`<div style="margin-top:8px;display:flex;gap:8px;align-items:center;"><input type="file" id="repl-foto-${id}" accept="image/*" style="display:none;" onchange="guardarReemplazoFoto(this,${id})" /><button class="btn-sm btn-ghost" onclick="document.getElementById('repl-foto-${id}').click()">Reemplazar foto (1 vez)</button><span style="font-size:12px;color:var(--sub);">Reemplazos usados: ${(v.fotoFinalReemplazos||0)}/1</span></div>`:''}
       </div>`:''}
     </div>`:''}
     ${mostrarAcciones?`<div style="margin-top:16px;">
@@ -1981,7 +1981,7 @@ function resetFoto(){
     <div class="foto-zone" onclick="document.getElementById('foto-input-r').click()">
       <i class="ti ti-camera" aria-hidden="true"></i><span>Tomar foto o seleccionar imagen</span>
     </div>
-    <input type="file" id="foto-input-r" accept="image/*" capture="environment" style="display:none;" onchange="cargarFoto(this)" />`;
+    <input type="file" id="foto-input-r" accept="image/*" style="display:none;" onchange="cargarFoto(this)" />`;
 }
 
 function guardarServicio(){
@@ -2016,7 +2016,7 @@ function abrirFinalizacion(id){
       <i class="ti ti-camera" aria-hidden="true"></i>
       <span>Tomar foto o seleccionar imagen</span>
     </div>
-    <input type="file" id="fin-foto-input" accept="image/*" capture="environment" style="display:none;" onchange="cargarFotoFinal(this)" />`;
+    <input type="file" id="fin-foto-input" accept="image/*" style="display:none;" onchange="cargarFotoFinal(this)" />`;
   abrirModal('m-final');
 }
 
