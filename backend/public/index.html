@@ -1386,6 +1386,12 @@ async function cargarDatos(){
 ══════════════════════════════════════════ */
 function hoy(){return new Date().toISOString().slice(0,10);}
 function fFecha(d){if(!d)return'—';const[y,m,dd]=d.split('-');return dd+'/'+m+'/'+y;}
+function triggerImagePicker(inputId){
+  const input = document.getElementById(inputId);
+  if (input) {
+    input.click();
+  }
+}
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.style.display='block';setTimeout(()=>t.style.display='none',2600);}
 function abrirModal(id){document.getElementById(id).classList.add('open');}
 function cerrarModal(id){document.getElementById(id).classList.remove('open');}
