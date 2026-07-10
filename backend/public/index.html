@@ -739,6 +739,33 @@ function sanitizeStateForCache(state){
   };
 }
 
+function createLocalCacheState(state, stripPhotos){
+  if(!state || typeof state !== 'object') return state;
+  const cached = sanitizeStateForCache(state);
+  return {
+    ...cached,
+    servicios: (cached.servicios||[]).map((svc) => ({
+      ...svc,
+      foto: stripPhotos && typeof svc.foto === 'string' ? null : svc.foto,
+      fotoFinal: stripPhotos && typeof svc.fotoFinal === 'string' ? null : svc.fotoFinal,
+    })),
+  };
+}
+
+function saveStateCache(state){
+  const cacheState = sanitizeStateForCache(state);
+  dbSet('app', cacheState).catch(()=>{});
+  try{
+    localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(createLocalCacheState(state, false)));
+  }catch(e){
+    try{
+      localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(createLocalCacheState(state, true)));
+    }catch(inner){
+      console.warn('Skipped localStorage cache due quota or disabled storage', inner);
+    }
+  }
+}
+
 function buildHeaders(extra={}){
   const headers = {'Content-Type':'application/json', ...extra};
   if(authToken){
@@ -917,8 +944,7 @@ async function actualizarEstadoRemoto(force){
             }
           }
         }catch(e){}
-        try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
-        dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+        saveStateCache(D);
         renderInicio();
         renderServicios();
       }
@@ -1033,8 +1059,7 @@ async function syncServidor(){
                   }
                 }
               }
-              localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));
-              dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+              saveStateCache(D);
             } else {
               const previousUnsynced = hasUnsyncedLocalChanges;
               hasUnsyncedLocalChanges = false;
@@ -1066,8 +1091,7 @@ async function syncServidor(){
               }
             }
           }
-          localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));
-          dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+          saveStateCache(D);
           lastSyncedPayload = '';
           hasUnsyncedLocalChanges = true;
           syncBackoffMs = 0;
@@ -1110,13 +1134,7 @@ function updateSyncIndicator(){
   
   if(!indicator) return;
   
-  if(isSyncing){
-    indicator.style.background = 'rgba(122,78,13,.2)';
-    statusEl.textContent = 'Sincronizando...';
-    statusEl.style.color = 'var(--warn)';
-    iconEl.style.color = 'var(--warn)';
-    iconEl.style.animation = 'spin 1s linear infinite';
-  } else if(hasPendingChanges || syncWarning){
+  if(hasPendingChanges || syncWarning){
     indicator.style.background = 'rgba(139,26,26,.2)';
     statusEl.textContent = 'Cambios pendientes';
     statusEl.style.color = 'var(--red)';
@@ -1179,8 +1197,14 @@ function guardarTodo(){
   const j=JSON.stringify(D);
   hasUnsyncedLocalChanges = true;
   hasPendingChanges = true;
-  try{localStorage.setItem(LOCAL_STATE_KEY, serverMode ? JSON.stringify(sanitizeStateForCache(D)) : j);}catch(e){}
-  dbSet('app', serverMode ? sanitizeStateForCache(D) : D).catch(()=>{});
+  try{
+    if(serverMode){
+      saveStateCache(D);
+    } else {
+      localStorage.setItem(LOCAL_STATE_KEY, j);
+      dbSet('app', D).catch(()=>{});
+    }
+  }catch(e){}
   updateSyncIndicator();
   syncServidor();
 }
@@ -1283,15 +1307,14 @@ async function cargarDatos(){
           if(s && p.patch) Object.assign(s, p.patch);
         }
         setPendingPatches([]);
-        try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}
-        dbSet('app', sanitizeStateForCache(D)).catch(()=>{});
+        saveStateCache(D);
       }
     }catch(e){}
     return;
   }
-  try{const ls=localStorage.getItem('ze_v5');if(ls){
+  try{const ls=localStorage.getItem(LOCAL_STATE_KEY);if(ls){
     D=JSON.parse(ls);
-    try{const patches=getPendingPatches();if(Array.isArray(patches)&&patches.length){for(const p of patches){const s=D.servicios.find(x=>Number(x.id)===Number(p.id));if(s&&p.patch)Object.assign(s,p.patch);}setPendingPatches([]);try{localStorage.setItem(LOCAL_STATE_KEY, JSON.stringify(sanitizeStateForCache(D)));}catch(e){}dbSet('app', sanitizeStateForCache(D)).catch(()=>{});} }catch(e){}
+    try{const patches=getPendingPatches();if(Array.isArray(patches)&&patches.length){for(const p of patches){const s=D.servicios.find(x=>Number(x.id)===Number(p.id));if(s&&p.patch)Object.assign(s,p.patch);}setPendingPatches([]);saveStateCache(D);} }catch(e){}
     return;
   }}catch(e){}
 }
