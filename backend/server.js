@@ -1289,31 +1289,20 @@ app.post('/api/zavala/login', async (req, res) => {
   }
 
   try {
-    // Consulta ligera: sólo cargamos usuarios para autenticar rápidamente
-    const usuariosRows = await all('SELECT * FROM usuarios');
-    const foundRow = (usuariosRows || []).find((u) => {
-      const storedUser = String(u.username ?? u.user ?? u.usuario ?? '').trim().toLowerCase();
+    const state = await loadState();
+    const found = (state.usuarios || []).find((u) => {
+      const storedUser = String(u.user ?? u.username ?? u.usuario ?? '').trim().toLowerCase();
       const storedNombre = String(u.nombre ?? '').trim().toLowerCase();
       const passMatch = String(u.pass) === String(pass);
       return passMatch && (storedUser === loginNormalized || storedNombre === loginNormalized);
     });
-
-    if (!foundRow) {
+    if (!found) {
       console.warn('Login fallido para:', userTrim);
       return res.status(401).json({ ok: false, message: 'Usuario o PIN incorrecto' });
     }
 
-    const found = {
-      id: Number(foundRow.id),
-      nombre: foundRow.nombre,
-      user: foundRow.username || foundRow.user || foundRow.usuario,
-      rol: foundRow.rol,
-      msgId: foundRow.msgId === null ? null : Number(foundRow.msgId),
-    };
-
     const token = await createSession(found.id);
-    // Devolvemos token y usuario; la carga del estado completo se hace por separado
-    res.json({ ok: true, token, usuario: sanitizeUsers([found])[0] });
+    res.json({ ok: true, token, usuario: sanitizeUsers([found])[0], state: sanitizeState(state) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ ok: false, message: 'Error al autenticar usuario' });
