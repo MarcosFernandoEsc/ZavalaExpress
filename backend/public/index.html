@@ -1876,11 +1876,13 @@ function verDetalle(id){
 function verFoto(id){
   const v=D.servicios.find(x=>x.id===id);
   const imgEl = document.getElementById('foto-full');
-  imgEl.src = v.foto;
-  imgEl.style.cursor = 'zoom-in';
-  // Al tocar la imagen, abrir en pantalla completa (si está disponible) o en nueva pestaña
-  imgEl.onclick = () => abrirFotoGrande();
-  document.getElementById('foto-cap').textContent = v.folio+' · '+msgNom(v.msgId)+' · '+fFecha(v.fecha);
+  // Preferir fotoFinal (comprobante) si existe, si no usar foto (evidencia)
+  const src = v && v.fotoFinal ? v.fotoFinal : (v && v.foto ? v.foto : '');
+  imgEl.src = src || '';
+  imgEl.style.cursor = src ? 'zoom-in' : 'default';
+  // Asignar onclick solo si hay src válido
+  imgEl.onclick = src ? () => abrirFotoGrande() : null;
+  document.getElementById('foto-cap').textContent = (v && v.folio? v.folio+' · ': '') + msgNom(v.msgId) + ' · ' + fFecha(v.fecha);
   abrirModal('m-foto');
 }
 
