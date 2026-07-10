@@ -1619,6 +1619,8 @@ async function iniciarLoginRemoto(user, pin){
     const data = await res.json();
     if(data.ok && data.token){
       saveAuthToken(data.token);
+      // Cargar estado remoto en segundo plano para mejorar tiempo de respuesta
+      cargarDatos().catch(e=>console.warn('Error cargando estado tras login:', e));
       if(data.state && data.state.servicios!==undefined){
         D = data.state;
       }
