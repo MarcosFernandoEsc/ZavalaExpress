@@ -1521,13 +1521,27 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
 
       for (const patchEntry of incomingPatches) {
         if (!patchEntry || typeof patchEntry !== 'object') continue;
+        const patchData = patchEntry.patch && typeof patchEntry.patch === 'object' ? patchEntry.patch : patchEntry;
+        if (!patchData || typeof patchData !== 'object') continue;
+
+        if (patchEntry.op === 'create') {
+          const incomingService = { ...(patchEntry.service || patchData) };
+          const incomingId = Number(incomingService.id ?? patchEntry.id ?? patchData.id);
+          if (!Number.isFinite(incomingId)) continue;
+          const existing = nextServices.find((svc) => Number(svc.id) === incomingId);
+          if (existing) {
+            Object.assign(existing, incomingService);
+          } else {
+            nextServices.push(incomingService);
+          }
+          continue;
+        }
+
         const serviceId = Number(patchEntry.id);
         if (!Number.isFinite(serviceId)) continue;
         const service = nextServices.find((svc) => Number(svc.id) === serviceId);
         if (!service) continue;
         if (!isAdminUser && Number.isFinite(userMsgId) && Number(service.msgId) !== userMsgId) continue;
-        const patchData = patchEntry.patch && typeof patchEntry.patch === 'object' ? patchEntry.patch : patchEntry;
-        if (!patchData || typeof patchData !== 'object') continue;
         Object.assign(service, patchData);
         if (service.finalizadoPor) {
           service.estatus = 'Finalizado';

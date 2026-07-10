@@ -953,12 +953,27 @@ function setPendingPatches(arr){
   pendingPatches = Array.isArray(arr) ? arr.slice() : [];
   persistPendingPatches();
 }
-function addPendingPatch(id, patch){
+function addPendingPatch(id, patch, options = {}){
   if(!id||!patch) return;
   const arr = getPendingPatches();
   const exist = arr.find(x=>Number(x.id)===Number(id));
-  if(exist){ exist.patch = {...exist.patch, ...patch}; exist.ts = new Date().toISOString(); }
-  else arr.push({id:Number(id), patch, ts:new Date().toISOString()});
+  const entry = {
+    id:Number(id),
+    patch: patch && typeof patch === 'object' ? {...patch} : patch,
+    ts:new Date().toISOString(),
+    ...(options.op ? { op: options.op } : {}),
+  };
+  if(options.op === 'create' && options.service){
+    entry.service = options.service;
+  }
+  if(exist){
+    exist.patch = {...(exist.patch||{}), ...(patch && typeof patch==='object' ? patch : {})};
+    exist.ts = new Date().toISOString();
+    if(options.op){ exist.op = options.op; }
+    if(options.op === 'create' && options.service){ exist.service = options.service; }
+  } else {
+    arr.push(entry);
+  }
   setPendingPatches(arr);
 }
 
@@ -1977,7 +1992,9 @@ function guardarServicio(){
   const fecha=document.getElementById('ns-fecha').value;
   if(!fecha){alert('Selecciona una fecha.');return;}
   const folio='SV-'+String(D.nxtFolio++).padStart(4,'0');
-  D.servicios.push({id:D.nxtId++,folio,msgId,personas:[...tmpP],fecha,hora:document.getElementById('ns-hora').value,monto:0,estatus:'Programado',obs:document.getElementById('ns-obs').value.trim(),foto:null,creadoPor:sesion.nombre,creadoEn:new Date().toISOString(),finalizadoPor:null,finalizadoEn:null,finalizadoReporte:'',finalizadoResultado:'',fotoFinal:''});
+  const nuevoServicio={id:D.nxtId++,folio,msgId,personas:[...tmpP],fecha,hora:document.getElementById('ns-hora').value,monto:0,estatus:'Programado',obs:document.getElementById('ns-obs').value.trim(),foto:null,creadoPor:sesion.nombre,creadoEn:new Date().toISOString(),finalizadoPor:null,finalizadoEn:null,finalizadoReporte:'',finalizadoResultado:'',fotoFinal:''};
+  D.servicios.push(nuevoServicio);
+  addPendingPatch(nuevoServicio.id, { ...nuevoServicio }, { op:'create', service: nuevoServicio });
   guardarTodo();cerrarModal('m-srv');renderInicio();renderServicios();
   toast('✓ Servicio '+folio+' registrado');
 }
