@@ -365,7 +365,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
 </div>
 
 <!-- ════════════════ MENSAJEROS ════════════════ -->
-<div class="scr" id="s-msg">
+<div class="scr" id="s-msg" style="display:none;">
   <div class="sec-hdr">
     <div class="sh-row">
       <div><div class="sh-title">Mensajeros</div><div class="sh-sub" id="msg-hdr-sub"></div></div>
@@ -659,7 +659,7 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
 <nav class="bnav" id="bottom-nav">
   <button class="bn act" onclick="irA('inicio',this)" aria-label="Inicio"><i class="ti ti-home" aria-hidden="true"></i><span>Inicio</span><div class="bn-bar"></div></button>
   <button class="bn" onclick="irA('servicios',this)" aria-label="Servicios"><i class="ti ti-car" aria-hidden="true"></i><span>Servicios</span><div class="bn-bar"></div></button>
-  <button class="bn" onclick="irA('msg',this)" aria-label="Mensajeros" id="bn-msg"><i class="ti ti-user-circle" aria-hidden="true"></i><span>Mensajeros</span><div class="bn-bar"></div></button>
+  <button class="bn" onclick="irA('msg',this)" aria-label="Mensajeros" id="bn-msg" style="display:none;"><i class="ti ti-user-circle" aria-hidden="true"></i><span>Mensajeros</span><div class="bn-bar"></div></button>
   <button class="bn" onclick="irA('rpt',this)" aria-label="Reportes" id="bn-rpt"><i class="ti ti-chart-bar" aria-hidden="true"></i><span>Reportes</span><div class="bn-bar"></div></button>
   <button class="bn" onclick="irA('usuarios',this)" aria-label="Usuarios" id="bn-usuarios" style="display:none;"><i class="ti ti-users" aria-hidden="true"></i><span>Usuarios</span><div class="bn-bar"></div></button>
   <button class="bn" onclick="irA('compartidos',this)" aria-label="Reportes recibidos" id="bn-compartidos" style="display:none;">
@@ -1075,7 +1075,16 @@ async function syncServidor(){
         break;
       }
       syncPending = false;
-      const payload = JSON.stringify(D);
+      const pendingForSync = getPendingPatches();
+      if(!pendingForSync.length){
+        syncPending = false;
+        break;
+      }
+      const payload = JSON.stringify({
+        backendCompatVersion: 6,
+        syncVersion: Number(D.syncVersion || 1),
+        pendingPatches: pendingForSync
+      });
       if(payload===lastSyncedPayload){
         syncPending = false;
         break;
@@ -1624,14 +1633,13 @@ function entrarConUsuario(found){
   document.getElementById('bn-usuarios').style.display=esAdmin()?'flex':'none';
   document.getElementById('bn-auditoria').style.display=esAdmin()?'flex':'none';
   document.getElementById('bn-compartidos').style.display=esAdmin()?'flex':'none';
-  document.getElementById('bn-msg').style.display=esAdmin()?'flex':'none';
+  document.getElementById('bn-msg').style.display='none';
   document.getElementById('ftab-eliminados').style.display=esAdmin()?'block':'none';
-  document.getElementById('btn-add-msg').style.display=esAdmin()?'flex':'none';
+  document.getElementById('btn-add-msg').style.display='none';
   document.getElementById('fg-mensajero').style.display=esAdmin()?'flex':'none';
   // Ocultar selector de mensajero en reportes para mensajeros (ven solo el suyo)
   const rptMsgContainer=document.querySelector('.pull-up #rpt-msg')?.closest('.fg');
   if(rptMsgContainer)rptMsgContainer.style.display=esAdmin()?'flex':'none';
-  document.getElementById('bn-msg').style.display=esAdmin()?'flex':'none';
   // Ocultar tarjetas del dashboard para no-admins si es requerido
   const extraCards=['card-usuarios','card-auditoria','card-compartidos'];
   extraCards.forEach(id=>{const el=document.getElementById(id); if(el) el.style.display=esAdmin()?'flex':'none';});

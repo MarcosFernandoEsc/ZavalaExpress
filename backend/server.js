@@ -1199,11 +1199,15 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Authorization', 'Content-Type', 'X-Access-Token', 'X-Auth-Token'],
 }));
-app.use(express.json({ limit: '10mb' }));
-app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ extended: true, limit: '50mb' }));
 app.use(express.static(join(__dirname, 'public')));
 
 app.use((err, req, res, next) => {
+  if (err && err.type === 'entity.too.large') {
+    console.error('Payload too large:', { path: req.path, contentLength: req.headers['content-length'] });
+    return res.status(413).json({ ok: false, message: 'El cuerpo de la petición es demasiado grande.' });
+  }
   if (err && err.type === 'entity.parse.failed') {
     console.error('JSON parse error:', err.message);
     return res.status(400).json({ ok: false, message: 'JSON inválido en la petición' });
@@ -1507,6 +1511,39 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
   try {
     await withStateMutationLock(async () => {
     const current = await loadState();
+    const incomingPatches = Array.isArray(incoming.pendingPatches) ? incoming.pendingPatches : [];
+
+    if (incomingPatches.length && incoming.usuarios === undefined && incoming.servicios === undefined && incoming.mensajeros === undefined && incoming.auditoria === undefined && incoming.reportesRecibidos === undefined) {
+      const nextServices = (current.servicios || []).map((svc) => ({ ...svc }));
+      const isAdminUser = req.user?.rol === 'admin';
+      const stateUser = (current.usuarios || []).find((u) => Number(u.id) === Number(req.user?.id));
+      const userMsgId = Number(req.user?.msgId ?? stateUser?.msgId);
+
+      for (const patchEntry of incomingPatches) {
+        if (!patchEntry || typeof patchEntry !== 'object') continue;
+        const serviceId = Number(patchEntry.id);
+        if (!Number.isFinite(serviceId)) continue;
+        const service = nextServices.find((svc) => Number(svc.id) === serviceId);
+        if (!service) continue;
+        if (!isAdminUser && Number.isFinite(userMsgId) && Number(service.msgId) !== userMsgId) continue;
+        const patchData = patchEntry.patch && typeof patchEntry.patch === 'object' ? patchEntry.patch : patchEntry;
+        if (!patchData || typeof patchData !== 'object') continue;
+        Object.assign(service, patchData);
+        if (service.finalizadoPor) {
+          service.estatus = 'Finalizado';
+        }
+      }
+
+      const next = {
+        ...current,
+        servicios: dedupeById(nextServices),
+        syncVersion: Number(current.syncVersion || 1) + 1,
+      };
+
+      await saveState(next);
+      broadcastStateUpdate(next.syncVersion, req.user?.id);
+      return res.json({ ok: true, saved: true, appliedPatches: incomingPatches.length });
+    }
 
     // Fase 6: compatibilidad app↔backend sin reinstalación.
     // El cliente puede mandar backendCompatVersion. Si no viene, se asume compatible.
