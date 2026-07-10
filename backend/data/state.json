@@ -77,11 +77,37 @@
       "personas": [
         "Casa Demo"
       ]
+    },
+    {
+      "id": 9999,
+      "folio": "SV-TEST-4",
+      "msgId": 1781583140908,
+      "personas": [
+        "Prueba"
+      ],
+      "fecha": "2026-07-10",
+      "hora": "20:00",
+      "monto": 0,
+      "estatus": "Programado",
+      "obs": "Creado por prueba",
+      "foto": "",
+      "creadoPor": "Administrador",
+      "creadoEn": "2026-07-10T04:42:38.716Z",
+      "finalizadoPor": "",
+      "finalizadoEn": "",
+      "finalizadoReporte": "",
+      "finalizadoResultado": "",
+      "fotoFinal": "",
+      "fotoFinalReemplazos": 0,
+      "eliminadoPor": "",
+      "eliminadoEn": "",
+      "editadoPor": "",
+      "editadoEn": ""
     }
   ],
   "auditoria": [],
   "reportesRecibidos": [],
-  "syncVersion": 18,
+  "syncVersion": 19,
   "nxtId": 3,
   "nxtFolio": 3,
   "nxtUsrId": 4
