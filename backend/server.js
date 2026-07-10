@@ -42,6 +42,17 @@ let stateMutationLock = Promise.resolve();
 // Buffer en memoria para eventos de merge relevantes (diagnóstico)
 const mergeAuditLogs = [];
 
+const dedupeById = (arr) => {
+  if (!Array.isArray(arr)) return arr;
+  const map = new Map();
+  for (const item of arr) {
+    const id = Number(item?.id);
+    if (!Number.isFinite(id)) continue;
+    map.set(id, { ...item, id });
+  }
+  return Array.from(map.values());
+};
+
 function initFirebaseMessaging() {
   if (firebaseMessaging) return;
 
@@ -1518,6 +1529,21 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
       const isAdminUser = req.user?.rol === 'admin';
       const stateUser = (current.usuarios || []).find((u) => Number(u.id) === Number(req.user?.id));
       const userMsgId = Number(req.user?.msgId ?? stateUser?.msgId);
+      const normalizePatchService = (s) => {
+        if (!s || typeof s !== 'object') return s;
+        const out = { ...s };
+        if (out.monto === '' || out.monto === undefined || out.monto === null) out.monto = out.monto || 0;
+        out.monto = Number(out.monto);
+        if (!Number.isFinite(out.monto)) out.monto = 0;
+        if (out.fotoFinalReemplazos === undefined || out.fotoFinalReemplazos === null || out.fotoFinalReemplazos === '') out.fotoFinalReemplazos = 0;
+        const fr = Number(out.fotoFinalReemplazos);
+        out.fotoFinalReemplazos = Number.isFinite(fr) ? fr : 0;
+        if (typeof out.personas === 'string') {
+          try { out.personas = JSON.parse(out.personas); } catch { out.personas = []; }
+        }
+        if (!Array.isArray(out.personas)) out.personas = [];
+        return out;
+      };
 
       for (const patchEntry of incomingPatches) {
         if (!patchEntry || typeof patchEntry !== 'object') continue;
@@ -1525,8 +1551,8 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
         if (!patchData || typeof patchData !== 'object') continue;
 
         if (patchEntry.op === 'create') {
-          const incomingService = { ...(patchEntry.service || patchData) };
-          const incomingId = Number(incomingService.id ?? patchEntry.id ?? patchData.id);
+          const incomingService = normalizePatchService({ ...(patchEntry.service || patchData), id: patchEntry.id ?? patchData.id });
+          const incomingId = Number(incomingService?.id);
           if (!Number.isFinite(incomingId)) continue;
           const existing = nextServices.find((svc) => Number(svc.id) === incomingId);
           if (existing) {
@@ -1794,17 +1820,6 @@ app.post('/api/zavala/state', requireAuth, async (req, res) => {
         out[idx] = nr;
       });
       return out;
-    };
-
-    const dedupeById = (arr) => {
-      if (!Array.isArray(arr)) return arr;
-      const map = new Map();
-      for (const item of arr) {
-        const id = Number(item?.id);
-        if (!Number.isFinite(id)) continue;
-        map.set(id, { ...item, id });
-      }
-      return Array.from(map.values());
     };
 
     const mergedServicios = incomingServicios !== undefined
