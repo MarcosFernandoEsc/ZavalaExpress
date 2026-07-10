@@ -1351,7 +1351,7 @@ async function cargarDatos(){
   }
   try{const ls=localStorage.getItem(LOCAL_STATE_KEY);if(ls){
     D=JSON.parse(ls);
-    try{const patches=getPendingPatches();if(Array.isArray(patches)&&patches.length){for(const p of patches){const s=D.servicios.find(x=>Number(x.id)===Number(p.id));if(s&&p.patch)Object.assign(s,p.patch);}setPendingPatches([]);saveStateCache(D);} }catch(e){}
+    try{const patches=getPendingPatches();if(Array.isArray(patches)&&patches.length){for(const p of patches){const s=D.servicios.find(x=>Number(x.id)===Number(p.id));if(s&&p.patch)Object.assign(s,p.patch);}saveStateCache(D);} }catch(e){}
     return;
   }}catch(e){}
 }

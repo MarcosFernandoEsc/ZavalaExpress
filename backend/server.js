@@ -171,6 +171,12 @@ async function openDatabase() {
       try {
         await run('PRAGMA journal_mode = WAL');
         await initDatabase();
+        // Ensure legacy SQLite schemas get normalized (e.g. missing username column)
+        try {
+          await normalizeSqliteSchema();
+        } catch (e) {
+          console.warn('normalizeSqliteSchema failed:', e?.message || String(e));
+        }
         await migrateJsonState();
         resolve();
       } catch (error) {
@@ -178,6 +184,36 @@ async function openDatabase() {
       }
     });
   });
+}
+
+async function normalizeSqliteSchema() {
+  // Defensive: if the DB has an older `usuarios` table without `username`, add and backfill it.
+  try {
+    const info = await all("PRAGMA table_info(usuarios)");
+    const cols = new Set((info || []).map((c) => String(c.name).toLowerCase()));
+    if (!cols.has('username')) {
+      // Add the column if missing
+      try {
+        await run('ALTER TABLE usuarios ADD COLUMN username TEXT');
+        console.log('Added missing usuarios.username column (sqlite)');
+      } catch (err) {
+        // Some sqlite versions may not support ALTER TABLE ADD COLUMN IF NOT EXISTS syntax in run wrapper
+        console.warn('Could not add username column via ALTER TABLE:', err?.message || String(err));
+      }
+
+      // If there is a legacy `user` column, copy values into `username`.
+      if (cols.has('user')) {
+        try {
+          await run('UPDATE usuarios SET username = user WHERE (username IS NULL OR username = "")');
+          console.log('Backfilled usuarios.username from usuarios.user');
+        } catch (err) {
+          console.warn('Could not backfill username from user:', err?.message || String(err));
+        }
+      }
+    }
+  } catch (error) {
+    console.warn('normalizeSqliteSchema: failed to inspect usuarios table:', error?.message || String(error));
+  }
 }
 
 async function initDatabase() {

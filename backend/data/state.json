@@ -51,11 +51,38 @@
       "personas": [
         "Carlos"
       ]
+    },
+    {
+      "id": 2,
+      "folio": "SV-0002",
+      "msgId": 1781583140908,
+      "fecha": "2026-07-10",
+      "hora": "19:00",
+      "monto": 150,
+      "estatus": "Finalizado",
+      "obs": "",
+      "foto": "",
+      "creadoPor": "Administrador",
+      "creadoEn": "2026-07-10T01:01:41.812Z",
+      "finalizadoPor": "Carlos LopezObrador",
+      "finalizadoEn": "2026-07-10T01:21:12.056Z",
+      "finalizadoReporte": "Entrega completada y comprobante recibido.",
+      "finalizadoResultado": "Finalizado correctamente",
+      "fotoFinal": "data:image/png;base64,ZmFrZS1pbWFnZQ==",
+      "fotoFinalReemplazos": 0,
+      "eliminadoPor": "",
+      "eliminadoEn": "",
+      "editadoPor": "",
+      "editadoEn": "",
+      "personas": [
+        "Casa Demo"
+      ]
     }
   ],
   "auditoria": [],
   "reportesRecibidos": [],
-  "nxtId": 2,
-  "nxtFolio": 2,
+  "syncVersion": 17,
+  "nxtId": 3,
+  "nxtFolio": 3,
   "nxtUsrId": 4
 }
