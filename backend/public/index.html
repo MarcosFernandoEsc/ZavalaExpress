@@ -642,12 +642,13 @@ body{font-family:'Segoe UI',system-ui,-apple-system,sans-serif;color:var(--txt);
       <div class="fg"><label>Resultado</label><select id="fin-resultado"><option value="Finalizado correctamente">Finalizado correctamente</option><option value="Finalizado con incidencias">Finalizado con incidencias</option><option value="Pendiente de seguimiento">Pendiente de seguimiento</option></select></div>
       <div class="m-sec">Foto del comprobante</div>
       <div id="fin-foto-wrap">
-        <div class="foto-zone" onclick="triggerImagePicker('fin-foto-input')" style="cursor:pointer;">
+        <div class="foto-zone" onclick="triggerImagePicker('fin-foto-input-camera')" style="cursor:pointer;">
           <i class="ti ti-camera" aria-hidden="true"></i>
-          <span>Tomar foto o seleccionar imagen</span>
+          <span>Tomar foto</span>
         </div>
-        <button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('fin-foto-input')" style="margin-top:8px;width:100%;justify-content:center;">Elegir foto o tomarla</button>
-        <input type="file" id="fin-foto-input" accept="image/*" style="display:none;" onchange="cargarFotoFinal(this)" />
+        <button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('fin-foto-input-gallery')" style="margin-top:8px;width:100%;justify-content:center;">Seleccionar desde galería</button>
+        <input type="file" id="fin-foto-input-camera" accept="image/*" capture="environment" style="display:none;" onchange="cargarFotoFinal(this)" />
+        <input type="file" id="fin-foto-input-gallery" accept="image/*" style="display:none;" onchange="cargarFotoFinal(this)" />
       </div>
       <button class="btn-prim btn-acc" onclick="guardarFinalizacion()" style="margin-top:16px;"><i class="ti ti-flag-checkered" aria-hidden="true"></i> Finalizar servicio</button>
     </div>
@@ -2020,12 +2021,13 @@ function abrirFinalizacion(id){
   document.getElementById('fin-reporte').value='';
   document.getElementById('fin-resultado').value='Finalizado correctamente';
   document.getElementById('fin-foto-wrap').innerHTML=`
-    <div class="foto-zone" onclick="triggerImagePicker('fin-foto-input')" style="cursor:pointer;">
+    <div class="foto-zone" onclick="triggerImagePicker('fin-foto-input-camera')" style="cursor:pointer;">
       <i class="ti ti-camera" aria-hidden="true"></i>
-      <span>Tomar foto o seleccionar imagen</span>
+      <span>Tomar foto</span>
     </div>
-    <button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('fin-foto-input')" style="margin-top:8px;width:100%;justify-content:center;">Elegir foto o tomarla</button>
-    <input type="file" id="fin-foto-input" accept="image/*" style="display:none;" onchange="cargarFotoFinal(this)" />`;
+    <button class="btn-sm btn-ghost" type="button" onclick="triggerImagePicker('fin-foto-input-gallery')" style="margin-top:8px;width:100%;justify-content:center;">Seleccionar desde galería</button>
+    <input type="file" id="fin-foto-input-camera" accept="image/*" capture="environment" style="display:none;" onchange="cargarFotoFinal(this)" />
+    <input type="file" id="fin-foto-input-gallery" accept="image/*" style="display:none;" onchange="cargarFotoFinal(this)" />`;
   abrirModal('m-final');
 }
 
