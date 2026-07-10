@@ -686,6 +686,7 @@ const DB_NAME='ZavalaExpressDB2', DB_VER=2, STORE='datos';
 const LOCAL_STATE_KEY='ze_v5';
 const AUTH_TOKEN_KEY='ze_token';
 const SESSION_USER_KEY='ze_session_user';
+const PENDING_PATCHES_KEY='ze_pending_patches';
 const APP_CONFIG={
   apiBaseUrl:
     window.__ZAVALA_CONFIG__?.apiBaseUrl ||
@@ -694,6 +695,7 @@ const APP_CONFIG={
 let authToken=localStorage.getItem(AUTH_TOKEN_KEY) || null;
 let serverMode=Boolean(APP_CONFIG.apiBaseUrl);
 let db=null;
+let pendingPatches=[];
 
 // Sincronización: rastreo de estado
 let lastSyncTime = null;
@@ -918,6 +920,52 @@ function abrirDB(){
 function dbGet(k){return new Promise(r=>{if(!db){r(null);return;}const tx=db.transaction(STORE,'readonly');const rq=tx.objectStore(STORE).get(k);rq.onsuccess=()=>r(rq.result||null);rq.onerror=()=>r(null);});}
 function dbSet(k,v){return new Promise(r=>{if(!db){r();return;}const tx=db.transaction(STORE,'readwrite');tx.objectStore(STORE).put(v,k);tx.oncomplete=()=>r();tx.onerror=()=>r();});}
 
+async function loadPendingPatches(){
+  try{
+    const stored = await dbGet('pending_patches');
+    if(Array.isArray(stored)){
+      pendingPatches = stored;
+      try{ localStorage.setItem(PENDING_PATCHES_KEY, JSON.stringify(stored)); }catch(e){}
+      return pendingPatches;
+    }
+  }catch(e){}
+  try{
+    const raw = localStorage.getItem(PENDING_PATCHES_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      if(Array.isArray(parsed)){
+        pendingPatches = parsed;
+        if(db) dbSet('pending_patches', pendingPatches).catch(()=>{});
+        return pendingPatches;
+      }
+    }
+  }catch(e){}
+  pendingPatches = [];
+  return pendingPatches;
+}
+
+function persistPendingPatches(){
+  const snapshot = Array.isArray(pendingPatches) ? pendingPatches : [];
+  if(db) dbSet('pending_patches', snapshot).catch(()=>{});
+  try{ localStorage.setItem(PENDING_PATCHES_KEY, JSON.stringify(snapshot)); }catch(e){}
+}
+
+function getPendingPatches(){
+  return Array.isArray(pendingPatches) ? pendingPatches.slice() : [];
+}
+function setPendingPatches(arr){
+  pendingPatches = Array.isArray(arr) ? arr.slice() : [];
+  persistPendingPatches();
+}
+function addPendingPatch(id, patch){
+  if(!id||!patch) return;
+  const arr = getPendingPatches();
+  const exist = arr.find(x=>Number(x.id)===Number(id));
+  if(exist){ exist.patch = {...exist.patch, ...patch}; exist.ts = new Date().toISOString(); }
+  else arr.push({id:Number(id), patch, ts:new Date().toISOString()});
+  setPendingPatches(arr);
+}
+
 async function actualizarEstadoRemoto(force){
   // force: cuando true, ignoramos `hasUnsyncedLocalChanges` y obtenemos estado remoto
   if(!serverMode || !authToken) return;
@@ -1007,7 +1055,13 @@ function iniciarRealtimeSync(){
 }
 
 async function syncServidor(){
-  if(!serverMode || !authToken)return;
+  if(!serverMode || !authToken) return;
+  if(typeof navigator !== 'undefined' && navigator.onLine === false){
+    syncPending = true;
+    hasPendingChanges = true;
+    updateSyncIndicator();
+    return;
+  }
   if(syncBackoffMs>0){
     setTimeout(()=>{ if(authToken) syncServidor(); }, syncBackoffMs);
     syncBackoffMs = 0;
@@ -1026,7 +1080,10 @@ async function syncServidor(){
       }
       syncPending = false;
       const payload = JSON.stringify(D);
-      if(payload===lastSyncedPayload)continue;
+      if(payload===lastSyncedPayload){
+        syncPending = false;
+        break;
+      }
       const res = await fetchApi('/api/zavala/state',{
         method:'POST',
         body:payload
@@ -1133,8 +1190,9 @@ function updateSyncIndicator(){
   const iconEl = document.getElementById('sync-icon');
   
   if(!indicator) return;
+  const hasPending = hasPendingChanges || syncWarning || (Array.isArray(pendingPatches) && pendingPatches.length > 0);
   
-  if(hasPendingChanges || syncWarning){
+  if(hasPending){
     indicator.style.background = 'rgba(139,26,26,.2)';
     statusEl.textContent = 'Cambios pendientes';
     statusEl.style.color = 'var(--red)';
@@ -1207,22 +1265,6 @@ function guardarTodo(){
   }catch(e){}
   updateSyncIndicator();
   syncServidor();
-}
-
-// Pending patches stored locally so they can be reapplied after a sync conflict
-function getPendingPatches(){
-  try{return JSON.parse(localStorage.getItem('ze_pending_patches')||'[]');}catch(e){return []}
-}
-function setPendingPatches(arr){
-  try{localStorage.setItem('ze_pending_patches', JSON.stringify(arr||[]));}catch(e){}
-}
-function addPendingPatch(id, patch){
-  if(!id||!patch) return;
-  const arr=getPendingPatches();
-  const exist=arr.find(x=>Number(x.id)===Number(id));
-  if(exist){ exist.patch = {...exist.patch, ...patch}; exist.ts=new Date().toISOString(); }
-  else arr.push({id:Number(id), patch, ts:new Date().toISOString()});
-  setPendingPatches(arr);
 }
 
 /* ══════════════════════════════════════════
@@ -1306,7 +1348,6 @@ async function cargarDatos(){
           const s = D.servicios.find(x=>Number(x.id)===Number(p.id));
           if(s && p.patch) Object.assign(s, p.patch);
         }
-        setPendingPatches([]);
         saveStateCache(D);
       }
     }catch(e){}
@@ -1876,6 +1917,7 @@ function abrirServicio(){
   ['ns-obs','ns-pnom'].forEach(x=>document.getElementById(x).value='');
   document.getElementById('ns-fecha').value=hoy();
   document.getElementById('ns-hora').value=new Date().toTimeString().slice(0,5);
+  // Preferir mensajero de Kristel si existe; si no, dejar vacío
   document.getElementById('ns-msg').value='';
   renderPTmp();llenarSels();
   abrirModal('m-srv');
@@ -2368,6 +2410,7 @@ document.addEventListener('visibilitychange',()=>{
 });
 window.addEventListener('pagehide',()=>guardarTodo());
 window.addEventListener('beforeunload',()=>guardarTodo());
+window.addEventListener('online',()=>{ if(authToken && navigator.onLine !== false) syncServidor(); });
 
 /* ══════════════════════════════════════════
    CERRAR MODALES tocando fondo
@@ -2464,6 +2507,7 @@ function guardarEdicion(){
 ══════════════════════════════════════════ */
 async function iniciarApp(){
   await abrirDB().catch(()=>{});
+  await loadPendingPatches().catch(()=>{});
   await cargarDatos();
   if(!D.usuarios)D.usuarios=[];
   // Asegurar que el admin siempre tenga PIN 1234 y rol correcto
