@@ -1938,8 +1938,9 @@ function elimSrv(id){
   if(!confirm('¿Eliminar este servicio?\n\nEl administrador podrá verlo en la sección de Auditoría como evidencia.'))return;
   const v=D.servicios.find(x=>x.id===id);
   if(!v)return;
-  v.eliminadoPor=sesion.nombre;
-  v.eliminadoEn=hoy();
+  v.eliminadoPor = sesion.nombre;
+  v.eliminadoEn = hoy();
+  v.updatedAt = new Date().toISOString();
   // Registrar en auditoría
   D.auditoria.push({
     ts:new Date().toISOString(),
@@ -1952,6 +1953,8 @@ function elimSrv(id){
     monto:v.monto,obs:v.obs,
     srvId:id
   });
+  // Registrar parche pendiente para que el servidor persista la eliminación
+  addPendingPatch(id, { eliminadoPor: v.eliminadoPor, eliminadoEn: v.eliminadoEn, updatedAt: v.updatedAt, estatus: v.estatus });
   guardarTodo();
   cerrarModal('m-det');
   renderInicio();renderServicios();
