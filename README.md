@@ -1,26 +1,47 @@
 # ZAVALAEXPRESS
 
-Aplicación web para control de servicios de mensajería de un despacho contable.
+Aplicación para gestionar servicios de mensajería de un despacho contable.
 
-## Flujo principal
+## Qué hace
 
-- El contador usa la app en PC para crear servicios.
-- Selecciona el mensajero/Uber asignado.
-- Registra fecha, hora, lugares o personas a visitar e importe.
-- El mensajero usa la app en móvil para revisar sus servicios.
-- Al terminar, el mensajero finaliza el servicio con reporte y foto de comprobante.
+- El administrador en PC crea servicios y asigna mensajeros.
+- El mensajero en móvil revisa sus servicios, reporta el cierre y agrega foto de comprobante.
+- El frontend puede funcionar en modo local-first usando IndexedDB y localStorage.
+- Opcionalmente, puede sincronizar con un backend central mediante una API REST.
 
-## Estado de la app
+## Estructura principal
 
-La app funciona en modo local-first:
+- `backend/`
+  - Servidor Express que expone la API de estado.
+  - `server.js` y `package.json`.
+  - `backend/public/index.html` puede ser servido por el backend.
+- `desktop/`
+  - App de escritorio Electron para el admin.
+  - Ajusta la URL en `desktop/config.json`.
+- `mobile/`
+  - App Android con Capacitor.
+  - Ajusta la URL en `mobile/capacitor.config.json`.
+- `ZAVALAEXPRESS(7).html`
+  - Uno de los archivos frontend principales que se puede abrir en navegador.
 
-- Guarda datos en IndexedDB.
-- Usa localStorage como respaldo.
-- Si se define un servidor, también intenta sincronizar el estado con una API.
+## Uso rápido
 
-## Configuración de servidor
+### 1. Ejecutar el backend
 
-El HTML espera, de forma opcional, esta configuración global:
+```bash
+cd backend
+npm install
+npm start
+```
+
+La API disponible es:
+
+- `GET /api/zavala/state`
+- `POST /api/zavala/state`
+
+### 2. Configurar el frontend web
+
+Si quieres que la página use la API del backend, agrega esto en el HTML antes de cargar la app:
 
 ```html
 <script>
@@ -30,44 +51,56 @@ El HTML espera, de forma opcional, esta configuración global:
 </script>
 ```
 
-Cuando `apiBaseUrl` está disponible, la app intenta usar:
+La app intentará sincronizar con el servidor cuando `apiBaseUrl` esté definido.
 
-- `GET /api/zavala/state`
-- `POST /api/zavala/state`
+### 3. Configurar la app de escritorio
 
-### Formato esperado
+Edita `desktop/config.json` para apuntar a la URL pública:
 
-La API debe devolver y aceptar el mismo objeto JSON interno que usa la app.
+```json
+{
+  "appUrl": "https://TU_DOMINIO_PUBLICO"
+}
+```
 
-## Recomendación de despliegue
+### 4. Configurar la app Android
 
-- Publicar el HTML en el servidor corporativo.
-- Asegurar HTTPS.
-- Conectar la API de estado antes de mover la operación a producción.
-- Probar primero con datos de ejemplo y después con datos reales.
+Edita `mobile/capacitor.config.json` y ajusta el bloque `server.url`:
 
-## Próximos pasos sugeridos
+```json
+{
+  "server": {
+    "url": "https://TU_DOMINIO_PUBLICO"
+  }
+}
+```
 
-1. Separar frontend y backend en archivos distintos.
-2. Crear autenticación real para contador y mensajeros.
-3. Guardar fotos en almacenamiento de servidor en lugar de local.
-4. Agregar historial de cambios y auditoría centralizada.
+### 5. Generar APK (opcional)
 
-## Apps nativas (Windows + Android)
+```bash
+cd mobile
+npm install
+npm run sync
+npm run open:android
+```
 
-Se agregó guía rápida para empaquetar aplicaciones descargables:
+Luego arma el APK desde Android Studio.
 
-- `NATIVE_APPS_QUICKSTART.md`
-- `desktop/` (Electron para admin en PC)
-- `mobile/` (Capacitor Android para mensajero)
+## Notas importantes
 
-## Para ir a la empresa (Chiapas)
+- Si no hay backend configurado, la app funciona en modo local-first con datos guardados en el navegador.
+- El backend actual es un avance funcional, no una solución final de producción.
+- Para que móvil y escritorio compartan datos, ambos deben usar la misma URL pública del backend.
+- Mantén HTTPS en producción.
 
-Antes de salir:
-- Lee: `CHECKLIST_EMPRESA.md` (qué preguntar al admin)
-- Lleva: este proyecto en tu USB/laptop
+## Qué revisar con el ingeniero
 
-Cuando regreses:
-- Lee: `ENTREGA_FINAL.md` (pasos paso a paso para configurar)
-- Ejecuta: `update-url.bat` (Windows) o `update-url.sh` (Linux/Mac) con tu URL
-- Entregar: `ZAVALAEXPRESS.exe` (admin) + `app-debug.apk` (mensajero)
+- `backend/` contiene la API y la versión que puede servir la interfaz.
+- `desktop/` contiene la app de escritorio Electron.
+- `mobile/` contiene la app Android Capacitor.
+- El frontend HTML principal puede abrirse directamente o mediante el backend.
+
+## Limpieza realizada
+
+- Se eliminaron todos los archivos `.md` excepto este `README.md`.
+- Queda un único punto de entrada para la documentación necesaria.
