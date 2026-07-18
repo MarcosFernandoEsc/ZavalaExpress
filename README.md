@@ -60,6 +60,17 @@ Aplicación para gestionar servicios de mensajería de un despacho contable.
 
 ### 1. Ejecutar el backend
 
+Verifica que el backend ya esté respondiendo:
+
+```bash
+cd backend
+npm install
+npm start
+npm run healthcheck
+```
+
+### 2. Ejecutar el backend
+
 ```bash
 cd backend
 npm install
